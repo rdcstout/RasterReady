@@ -1,0 +1,22 @@
+{
+  "selected_option": 2,
+  "description": "Red rounded tile with white crop/photo/sparkle mark",
+  "original": "product-icon-selected.png",
+  "transparent_master": "product-icon-master.png",
+  "preparation": "Built-in image tool: remove exterior white canvas only; retain red tile and white symbols; transparent background. Format/size derivatives produced with Pillow.",
+  "sha256": {
+    "RasterReady.icns": "06a73afc46e54f0b2da6ff2682c50665a38ab089f08e7949b73582ea9f19f491",
+    "product-icon-256.png": "a90fd198285c32e1b8bd899f6f0a4aaa776e9b190aa3fff482608452f018cf76",
+    "RasterReady.ico": "e0e4d90acea9d94956e143b3ba38567fe24ef40c44769fe6aaf1789f38fcb973",
+    "product-icon-16.png": "772bef34878daa67b25d28f00dea73b6f8d1991e407d2e5d8623a98676583507",
+    "product-icon-64.png": "fb6dd7e319e1af57351ffa645ac3160bac7530d12aa06124fcdca65f6c3d26a0",
+    "product-icon.png": "3cf1aec03b3308642ebb51f6ee73f511bfac620596852538fd1790bfc3ad0358",
+    "product-icon-48.png": "0568a63dafde4221bbf5af8829e8a1b933bcbc498c0ad2199681072b63cc0070",
+    "product-icon-master.png": "3d2a7d27bd49edab61c68572808b87eda394314eae5314da9b1d73f3c74120d9",
+    "product-icon-128.png": "c66cc8d0430f812e7ab9a2cdc6823527382ecd44a0b92ed31841ecd029edf28e",
+    "product-icon-32.png": "2def81c0ddbdc00caa52452a19cf57154e102855e45731712716d7efb791db87",
+    "product-icon-24.png": "e6638a9da20c1a4db1bad462af493d4d61f253eed476110685a31252936b0f0f",
+    "product-icon-512.png": "d7020a2f5d6ca90e8e384ee6ca225e26456d036619804c9b4bec8134c0e07c0b",
+    "product-icon-selected.png": "d4103181100e6b9fa8e803763409207034471185bfa0c913753f0e4f0af3fba7"
+  }
+}

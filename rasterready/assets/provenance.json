@@ -1,0 +1,18 @@
+{
+  "source": "https://github.com/tabler/tabler-icons",
+  "commit": "ed177a085b652fe04ec4f37ced867c94621e7840",
+  "license": "MIT",
+  "files": [
+    "photo.svg",
+    "folder-open.svg",
+    "circle-check.svg",
+    "alert-circle.svg",
+    "chevron-down.svg",
+    "check.svg"
+  ],
+  "derived": {
+    "chevron-down-light.svg": "chevron-down.svg stroke color only",
+    "chevron-down-dark.svg": "chevron-down.svg stroke color only",
+    "check-white.svg": "check.svg stroke color only"
+  }
+}

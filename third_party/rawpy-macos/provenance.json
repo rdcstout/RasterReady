@@ -1,0 +1,118 @@
+{
+  "scope": "Mac native libraries bundled by rawpy0.27.1 only; not a Windows/Linux inventory or complete corresponding-source/relinking bundle",
+  "rawpy_version": "0.27.1",
+  "upstream_builder": "https://github.com/letmaik/rawpy/blob/v0.27.1/.github/scripts/build-macos.sh",
+  "libraw_git_commit": "b860248a89d9082b8e0a1e202e516f46af9adb29",
+  "libraw_git_blob_verification_count": 225,
+  "source_archives": [
+    {
+      "name": "libraw",
+      "url": "https://codeload.github.com/LibRaw/LibRaw/tar.gz/b860248a89d9082b8e0a1e202e516f46af9adb29",
+      "sha256": "f5da1e522ea195b54b30f3ff105ef2193daa04ea165dea825b4d6fe9d886395b",
+      "pinned_sha256_match": false,
+      "verification": "225 archive files match the upstream commit Git blob hashes"
+    },
+    {
+      "name": "jasper",
+      "url": "https://codeload.github.com/jasper-software/jasper/tar.gz/refs/tags/version-4.2.5",
+      "sha256": "3f4b1df7cab7a3cc67b9f6e28c730372f030b54b0faa8548a9ee04ae83fffd44",
+      "pinned_sha256_match": true
+    },
+    {
+      "name": "libjpeg-turbo",
+      "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.3/libjpeg-turbo-3.1.3.tar.gz",
+      "sha256": "075920b826834ac4ddf97661cc73491047855859affd671d52079c6867c1c6c0",
+      "pinned_sha256_match": true
+    },
+    {
+      "name": "lcms",
+      "url": "https://downloads.sourceforge.net/project/lcms/lcms/2.11/lcms2-2.11.tar.gz",
+      "sha256": "dc49b9c8e4d7cdff376040571a722902b682a795bf92985a85b48854c270772e",
+      "pinned_sha256_match": true
+    }
+  ],
+  "notices": [
+    {
+      "path": "LibRaw/COPYRIGHT",
+      "sha256": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+      "upstream_path": "libraw/LibRaw-b860248a89d9082b8e0a1e202e516f46af9adb29/COPYRIGHT",
+      "upstream_file_sha256": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "LibRaw/LICENSE.LGPL",
+      "sha256": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+      "upstream_path": "libraw/LibRaw-b860248a89d9082b8e0a1e202e516f46af9adb29/LICENSE.LGPL",
+      "upstream_file_sha256": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "LibRaw/LICENSE.CDDL",
+      "sha256": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+      "upstream_path": "libraw/LibRaw-b860248a89d9082b8e0a1e202e516f46af9adb29/LICENSE.CDDL",
+      "upstream_file_sha256": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "LibRaw/DCB-LICENSE.txt",
+      "sha256": "0ba72305457f05f0f1c2d5153dce6173ee0f642c084e21f60fab6c2825e11420",
+      "upstream_path": "libraw/LibRaw-b860248a89d9082b8e0a1e202e516f46af9adb29/src/demosaic/dcb_demosaic.cpp",
+      "upstream_file_sha256": "e02a3626c5794c40221bde1be4bd55ee0cad15c860013319969f0cbec682410f",
+      "extraction": "first C comment"
+    },
+    {
+      "path": "LibRaw/X3F-LICENSE.txt",
+      "sha256": "b57f71dfced30bfc871b43262ebd2a684260d1b1aac343abe688755a531c52b8",
+      "upstream_path": "libraw/LibRaw-b860248a89d9082b8e0a1e202e516f46af9adb29/src/x3f/x3f_utils_patched.cpp",
+      "upstream_file_sha256": "c583061eb4c4320b8bcbd1c3f619b46a27f7833b2d8f6ec2d99b39e2a4bc8799",
+      "extraction": "first C comment"
+    },
+    {
+      "path": "JasPer/LICENSE.txt",
+      "sha256": "4ad1bb42aff888c4403d792e6e2c5f1716d6c279fea70b296333c9d577d30b81",
+      "upstream_path": "jasper/jasper-version-4.2.5/LICENSE.txt",
+      "upstream_file_sha256": "4ad1bb42aff888c4403d792e6e2c5f1716d6c279fea70b296333c9d577d30b81",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "LittleCMS/COPYING",
+      "sha256": "53ad5ca11b8f4079e9c9bfa61575927a33f53526d6d414287149ec3ab61e8e4d",
+      "upstream_path": "lcms/lcms2-2.11/COPYING",
+      "upstream_file_sha256": "53ad5ca11b8f4079e9c9bfa61575927a33f53526d6d414287149ec3ab61e8e4d",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "libjpeg-turbo/LICENSE.md",
+      "sha256": "2189dc45a8fe96204069f8124caa53a148dfdc193f50f584c6ca7849a6072872",
+      "upstream_path": "libjpeg-turbo/libjpeg-turbo-3.1.3/LICENSE.md",
+      "upstream_file_sha256": "2189dc45a8fe96204069f8124caa53a148dfdc193f50f584c6ca7849a6072872",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "libjpeg-turbo/README.ijg",
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6",
+      "upstream_path": "libjpeg-turbo/libjpeg-turbo-3.1.3/README.ijg",
+      "upstream_file_sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "LibRaw/Adobe-MIT.txt",
+      "sha256": "2298bfcdd6d94dc7e5aaa60d512fb3b4fd9a0ec0bd22e3cfe07efcecb9f9da05",
+      "upstream_url": "https://stlab.adobe.com/licenses.html",
+      "upstream_document_sha256": "3b303785cb739d6f50021545d269d728385a1edb77189005a8ce9a5ea873fb58",
+      "extraction": "Verbatim first HTML pre element text, excluding initial HTML formatting newline",
+      "applicability_basis": "Exact LibRaw COPYRIGHT declares Adobe DNG SDK 1.4 pieces, Copyright (c) 2005 Adobe Systems Incorporated, MIT. This reproduces Adobe published MIT text with that copyright; not a claim that all DNG SDK code uses MIT.",
+      "review_limitations": "Exact borrowed-code mapping and full SDK provenance remain under review."
+    }
+  ],
+  "release_ready": false,
+  "build_sources": [
+    {
+      "name": "libraw-cmake",
+      "commit": "6e26c9e73677dc04f9eb236a97c6a4dc225ba7e8",
+      "url": "https://codeload.github.com/LibRaw/LibRaw-cmake/tar.gz/6e26c9e73677dc04f9eb236a97c6a4dc225ba7e8",
+      "sha256": "d0ecc870bb395ca05d4de61314d092437bb37afac1e17131cc64c58e57369a11",
+      "verification": "CMakeLists.txt matches Git blob 889fddf833aa81c250bd20e565aed4e1c181976f at this commit; archive hash computed locally"
+    }
+  ]
+}

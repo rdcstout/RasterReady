@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RasterReady
+Comment=Prepare web-sized PNG images with embedded metadata removed
+Exec=rasterready
+Icon=rasterready
+Terminal=false
+Categories=Graphics;Photography;

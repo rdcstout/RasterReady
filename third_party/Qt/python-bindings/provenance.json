@@ -1,0 +1,46 @@
+{
+  "scope": "Qt for Python 6.12.0 Shiboken embedded Python 3.7 attribution records and referenced notice files",
+  "source": {
+    "repository": "pyside/pyside-setup",
+    "tag": "v6.12.0",
+    "commit": "f50facb83fc3dc5f3240c854668c7a6dd93871b2",
+    "url": "https://codeload.github.com/pyside/pyside-setup/tar.gz/f50facb83fc3dc5f3240c854668c7a6dd93871b2",
+    "sha256": "9f4e546d4e768173c670971af4a27ce19fbed88c1133139dbadee221b7b756fb",
+    "bytes": 21224512,
+    "archive_hash_independently_published": false,
+    "executed": false,
+    "contained_source_symlinks": 3
+  },
+  "files": [
+    {
+      "path": "sources/shiboken6/libshiboken/bufferprocs_py37.h",
+      "git_blob_sha1": "5727c3a09e161598749759a6be3813456d369ba3",
+      "sha256": "7717a874ab6a950ca55f6144efb934a086d16a7c9935d137eeb46afe96bd03fd",
+      "url": "https://github.com/pyside/pyside-setup/blob/f50facb83fc3dc5f3240c854668c7a6dd93871b2/sources/shiboken6/libshiboken/bufferprocs_py37.h",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "sources/shiboken6/libshiboken/qt_attribution.json",
+      "git_blob_sha1": "984549b5cadbd7319304a20f8ce4355637dc795c",
+      "sha256": "1b643e281a9ccb592cfb5df7fc457b9b466f35de6e91ccce76589e85e047573c",
+      "url": "https://github.com/pyside/pyside-setup/blob/f50facb83fc3dc5f3240c854668c7a6dd93871b2/sources/shiboken6/libshiboken/qt_attribution.json",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "sources/shiboken6/shibokenmodule/files.dir/shibokensupport/signature/PSF-3.7.0.txt",
+      "git_blob_sha1": "be42010dd293c9481ed98ee98a4b8028e414dedf",
+      "sha256": "e5bdc4b568f0016df16652c4769bafde76641b61409149100ee53b708c8f1219",
+      "url": "https://github.com/pyside/pyside-setup/blob/f50facb83fc3dc5f3240c854668c7a6dd93871b2/sources/shiboken6/shibokenmodule/files.dir/shibokensupport/signature/PSF-3.7.0.txt",
+      "extraction": "complete file, verbatim"
+    },
+    {
+      "path": "sources/shiboken6/shibokenmodule/files.dir/shibokensupport/signature/qt_attribution.json",
+      "git_blob_sha1": "b05f19c46a9805b93559f51e9fee5753cacc54fc",
+      "sha256": "6197e61575b0f1a65fc4a32647e48c6a4897aa104ad9e5e397cec8fecdcc2f59",
+      "url": "https://github.com/pyside/pyside-setup/blob/f50facb83fc3dc5f3240c854668c7a6dd93871b2/sources/shiboken6/shibokenmodule/files.dir/shibokensupport/signature/qt_attribution.json",
+      "extraction": "complete file, verbatim"
+    }
+  ],
+  "release_ready": false,
+  "remaining": "Final target payload matching and corresponding-source/build/replacement verification remain required."
+}

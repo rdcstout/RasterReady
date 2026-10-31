@@ -1,0 +1,8 @@
+# Optional native HEIC wheel builder, separate from application dependencies.
+cmake==4.4.4
+ninja==1.13.2
+delocate==0.13.0; sys_platform == 'darwin'
+auditwheel==6.8.2; sys_platform == 'linux'
+delvewheel==1.13.2; sys_platform == 'win32'
+setuptools==84.2.1
+wheel==0.48.0
