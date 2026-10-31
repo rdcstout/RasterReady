@@ -142,6 +142,7 @@ def collect(output):
         copy(source, Path("Qt-upstream") / source.relative_to(qt))
         for source in sorted(qt.rglob("*"))
         if source.is_file()
+        and ("platforms" not in source.relative_to(qt).parts or sys.platform == "linux")
     ]
     if sys.platform == "darwin" and metadata.version("rawpy") == "0.27.1":
         rawpy_notices = Path(__file__).resolve().parents[1] / "third_party/rawpy-macos"
@@ -149,6 +150,29 @@ def collect(output):
             copy(source, Path("rawpy-Mac-upstream") / source.relative_to(rawpy_notices))
             for source in sorted(rawpy_notices.rglob("*"))
             if source.is_file()
+        ]
+    if sys.platform == "win32" and metadata.version("rawpy") == "0.27.1":
+        third_party = Path(__file__).resolve().parents[1] / "third_party"
+        manifest["rawpy_windows_supplement"] = [
+            copy(source, Path("rawpy-Windows-upstream") / source.relative_to(notices))
+            for notices in (
+                third_party / "rawpy-windows",
+                third_party / "rawpy-macos",
+            )
+            for source in sorted(notices.rglob("*"))
+            if source.is_file()
+            and (notices.name == "rawpy-windows" or "LibRaw" in source.relative_to(notices).parts)
+        ]
+    if sys.platform == "linux" and metadata.version("rawpy") == "0.27.1":
+        third_party = Path(__file__).resolve().parents[1] / "third_party"
+        manifest["rawpy_linux_supplement"] = [
+            copy(source, Path("rawpy-Linux-upstream") / source.relative_to(notices))
+            for notices in (third_party / "rawpy-linux", third_party / "rawpy-macos")
+            for source in sorted(notices.rglob("*"))
+            if source.is_file()
+            and (
+                notices.name == "rawpy-linux" or source.name not in {"README.md", "provenance.json"}
+            )
         ]
     (output / "inventory.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Collected notices into {output}; unresolved release requirements remain.")

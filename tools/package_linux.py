@@ -35,11 +35,15 @@ def validate_bundle(bundle):
             raise ValueError(f"Special file in bundle: {path}")
 
 
-def stage(bundle, output, version):
+def stage(bundle, output, version, development=True):
     if output.exists() or output.is_symlink() or output.is_relative_to(bundle):
         raise ValueError("Use a new output directory outside the bundle")
     validate_bundle(bundle)
     parsed = Version(version)
+    if not development and (
+        parsed.is_prerelease or parsed.is_devrelease or parsed.local or parsed.epoch
+    ):
+        raise ValueError("A candidate requires a stable public version")
     # A local development version sorts before the corresponding stable package.
     deb_version = str(parsed).replace(".dev", "~dev")
     if not all(character.isalnum() or character in ".+~" for character in deb_version):
@@ -84,21 +88,23 @@ def stage(bundle, output, version):
         f"Package: rasterready\nVersion: {deb_version}\nArchitecture: amd64\n"
         "Maintainer: RasterReady project\nSection: graphics\nPriority: optional\n"
         f"Depends: libc6 (>= {'.'.join(map(str, GLIBC_BASELINE))}), "
-        "libstdc++6, libgcc-s1, libegl1, libgl1, "
+        "libstdc++6, libgcc-s1, libegl1, libgl1, libwayland-client0, "
+        "libwayland-cursor0, libwayland-egl1, "
         "libxkbcommon-x11-0, libxcb-cursor0, libxcb-icccm4, libxcb-keysyms1, "
         "libxcb-randr0, libxcb-shape0, libxcb-xfixes0, libxcb-sync1, libxcb-xkb1\n"
         "Homepage: https://github.com/rdcstout/RasterReady\n"
-        "Description: Local development trial for web image preparation\n"
-        " PNG conversion with embedded metadata removed. Not a release package.\n"
+        "Description: Prepare images for websites and sales listings\n"
+        " Local PNG conversion with embedded metadata removed.\n"
     )
     manifest = {
         "version": str(parsed),
         "debian_version": deb_version,
-        "kind": "development-staging",
+        "kind": "development-staging" if development else "local-candidate",
+        "development": development,
         "release_ready": False,
         "product_icon": "Roger-selected red crop/photo mark (option 2)",
         "native_build_and_install_acceptance": False,
-        "baseline": "Ubuntu 24.04 x64 trial; system dependency closure unverified",
+        "baseline": "Ubuntu 24.04 x64 / glibc 2.39; exact desktop acceptance remains separate",
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return appdir, deb, manifest
@@ -115,7 +121,8 @@ def build(output, appdir, deb, manifest, tool_directory):
     verify(tool_directory)
     desktop = appdir / "rasterready.desktop"
     subprocess.run(["desktop-file-validate", str(desktop)], check=True)
-    name = f"RasterReady-{manifest['version']}-linux-x64-development"
+    suffix = "-development" if manifest["development"] else ""
+    name = f"RasterReady-{manifest['version']}-linux-x64{suffix}"
     deb_file = output / f"{name}.deb"
     appimage = output / f"{name}.AppImage"
     subprocess.run(
@@ -154,11 +161,13 @@ if __name__ == "__main__":
     parser.add_argument("--stage-only", action="store_true")
     parser.add_argument("--tool-directory", type=Path)
     args = parser.parse_args()
-    if not args.development:
-        parser.error("Metadata, dependency and native acceptance gates remain; development only")
+    if args.stage_only and not args.development:
+        parser.error("Use --development for a staging-only inspection")
     if not args.stage_only and args.tool_directory is None:
         parser.error("Native build requires the pinned --tool-directory")
-    appdir, deb, manifest = stage(args.bundle.resolve(), args.output.resolve(), args.version)
+    appdir, deb, manifest = stage(
+        args.bundle.resolve(), args.output.resolve(), args.version, args.development
+    )
     if not args.stage_only:
         build(args.output.resolve(), appdir, deb, manifest, args.tool_directory.resolve())
-    print(f"Prepared development packaging under {args.output}; not release-ready.")
+    print(f"Prepared local packaging under {args.output}; acceptance and release approval remain.")

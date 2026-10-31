@@ -1,0 +1,105 @@
+{
+  "scope": "Windows rawpy 0.27.1 native dependency source and notice provenance; final binary distribution requires the complete platform source/build materials.",
+  "payload_match": [
+    {
+      "path": "_internal/rawpy/_rawpy.cp312-win_amd64.pyd",
+      "sha256": "8e19473e0987ef0e5d72e4f3c09d406f55d3cfdb6e76faa419f0401cc141c0dd",
+      "matches_exact_installer_payload": true
+    },
+    {
+      "path": "_internal/rawpy/raw_r.dll",
+      "sha256": "135e783d3f13a457ffaef2b31ac659e7386082a587718090f8f5cf416f029645",
+      "matches_exact_installer_payload": true
+    },
+    {
+      "path": "_internal/rawpy/vcomp140.dll",
+      "sha256": "55aba23cdcd6484fbb06f4155b8ca75adfce7a881f10afd0c49457165e677164",
+      "matches_exact_installer_payload": true
+    }
+  ],
+  "builder": "https://github.com/letmaik/rawpy/blob/v0.27.1/.github/scripts/build-windows.ps1",
+  "vcpkg_ref": "2026.07.29",
+  "components": [
+    {
+      "component": "zlib",
+      "version": "1.3.2",
+      "url": "https://codeload.github.com/madler/zlib/tar.gz/v1.3.2",
+      "sha256": "b99a0b86c0ba9360ec7e78c4f1e43b1cbdf1e6936c8fa0f6835c0cd694a495a1",
+      "vcpkg_sha512_verified": true,
+      "notices": {
+        "LICENSE": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+      }
+    },
+    {
+      "component": "libjpeg-turbo",
+      "version": "3.2.0",
+      "url": "https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/3.2.0",
+      "sha256": "980dd81f425082aa6d7c9e47fef27554ce7a9ffc8e2f6e863b97d263c5c50858",
+      "vcpkg_sha512_verified": true,
+      "notices": {
+        "LICENSE.md": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579",
+        "README.ijg": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+      }
+    },
+    {
+      "component": "jasper",
+      "version": "4.2.9",
+      "url": "https://codeload.github.com/jasper-software/jasper/tar.gz/version-4.2.9",
+      "sha256": "b0e5af6b54c274b9670c7e32ddbf6c802d88c896062d760267695dd0aa7014ff",
+      "vcpkg_sha512_verified": true,
+      "notices": {
+        "LICENSE.txt": "4ad1bb42aff888c4403d792e6e2c5f1716d6c279fea70b296333c9d577d30b81"
+      }
+    },
+    {
+      "component": "lcms",
+      "version": "2.19.1",
+      "url": "https://codeload.github.com/mm2/Little-CMS/tar.gz/lcms2.19.1",
+      "sha256": "267705e278e2f7c2fb886c259dadcbaeb2be52748bcbc71c79f08aacacb7a709",
+      "vcpkg_sha512_verified": true,
+      "notices": {
+        "LICENSE": "6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31"
+      }
+    }
+  ],
+  "libraw_commit": "b860248a89d9082b8e0a1e202e516f46af9adb29",
+  "libraw_notices": "../rawpy-macos/LibRaw; copied to the Windows notice inventory by collect_notices.py",
+  "notices": [
+    {
+      "path": "jasper/LICENSE.txt",
+      "sha256": "4ad1bb42aff888c4403d792e6e2c5f1716d6c279fea70b296333c9d577d30b81"
+    },
+    {
+      "path": "lcms/LICENSE",
+      "sha256": "6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31"
+    },
+    {
+      "path": "libjpeg-turbo/LICENSE.md",
+      "sha256": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579"
+    },
+    {
+      "path": "libjpeg-turbo/README.ijg",
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+    },
+    {
+      "path": "zlib/LICENSE",
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+    }
+  ],
+  "vcpkg_source": {
+    "commit": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
+    "tag": "2026.07.29",
+    "url": "https://codeload.github.com/microsoft/vcpkg/tar.gz/9e593bb18ea69cc5095e012465dcd675a822ed0d",
+    "sha256": "e9255b62719c659f224fcc639b1bf4a6226e4996ad3fb006e18e1533cad77725",
+    "bytes": 5334507,
+    "includes": "Complete vcpkg source, triplets, helper scripts, component patches; all four reviewed ports match retained files"
+  },
+  "rawpy_source": {
+    "commit": "a39c2e7a44911889c3360891012f862f904ba551",
+    "tag": "v0.27.1",
+    "url": "https://codeload.github.com/letmaik/rawpy/tar.gz/a39c2e7a44911889c3360891012f862f904ba551",
+    "sha256": "f74ab60868c850afce9107e889c103eff3cf7b4b9c33121e74497e3a31a37423",
+    "bytes": 76019297,
+    "builder_scripts_match": true
+  }
+}

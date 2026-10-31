@@ -1,0 +1,130 @@
+{
+  "scope": "Linux x64 rawpy 0.27.1 native notice/source provenance",
+  "wheel": {
+    "comment_text": null,
+    "core-metadata": {
+      "sha256": "eee3d2b2ab127b41f917ed03f69ec32f0411843ef258680c523a1a41ceacb38a"
+    },
+    "digests": {
+      "blake2b_256": "0b8d3467458970278eb6f69d42311401ede67bee5cebe80f74124231ccff7dc3",
+      "md5": "0808cf881c6e03bd834a8d41334ca457",
+      "sha256": "88bc8f7ac8418249afffa7323063d3e886d4eddc65b930aea714e8736e3af75b"
+    },
+    "downloads": -1,
+    "filename": "rawpy-0.27.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+    "has_sig": false,
+    "md5_digest": "0808cf881c6e03bd834a8d41334ca457",
+    "packagetype": "bdist_wheel",
+    "python_version": "cp312",
+    "requires_python": ">=3.9",
+    "size": 2953203,
+    "upload_time": "2026-08-30T04:53:38",
+    "upload_time_iso_8601": "2026-08-30T04:53:38.338539Z",
+    "url": "https://files.pythonhosted.org/packages/0b/8d/3467458970278eb6f69d42311401ede67bee5cebe80f74124231ccff7dc3/rawpy-0.27.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+    "yanked": false,
+    "yanked_reason": null
+  },
+  "payload_matches": [
+    {
+      "path": "rawpy/_rawpy.cpython-312-x86_64-linux-gnu.so",
+      "sha256": "31022dde4162162417488ea27befe3a78936dadb521732b6d97f5ffd5edbb31d",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy/libraw_r.so",
+      "sha256": "8533bef42f925f1508bf6b624e150cb85daf60ee106a039b5672a48fb90864c3",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy/libraw_r.so.25",
+      "sha256": "8533bef42f925f1508bf6b624e150cb85daf60ee106a039b5672a48fb90864c3",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy/libraw_r.so.25.0.0",
+      "sha256": "8533bef42f925f1508bf6b624e150cb85daf60ee106a039b5672a48fb90864c3",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy.libs/libgomp-e985bcbb.so.1.0.0",
+      "sha256": "25b19bcd491ab3a317c65c9b6a44b3075f8ab25a57b901cfa1ee6c0d6ea206ac",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy.libs/libjasper-5b68ace6.so.7.0.0",
+      "sha256": "4d95e5fb130291f149f7c42cd2540ef8035a584b9d8db1f5d1be65a7edee73d7",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy.libs/libjpeg-4e52be0c.so.8.3.2",
+      "sha256": "6c71664bb10110014690e04b247329c0be71a3ecd7dd223a8c80ab9ea95df618",
+      "matches_exact_DEB_payload": true
+    },
+    {
+      "path": "rawpy.libs/liblcms2-ff8c4a65.so.2.0.10",
+      "sha256": "6b8fe46befad64767b6b9d3b1961d9f37d7d24f1753bef70f8b2a26a5fd9ebbd",
+      "matches_exact_DEB_payload": true
+    }
+  ],
+  "builder": "https://github.com/letmaik/rawpy/blob/v0.27.1/.github/scripts/build-linux.sh",
+  "shared_codec_sources": [
+    {
+      "name": "libraw",
+      "url": "https://codeload.github.com/LibRaw/LibRaw/tar.gz/b860248a89d9082b8e0a1e202e516f46af9adb29",
+      "sha256": "f5da1e522ea195b54b30f3ff105ef2193daa04ea165dea825b4d6fe9d886395b",
+      "pinned_sha256_match": false,
+      "verification": "225 archive files match the upstream commit Git blob hashes"
+    },
+    {
+      "name": "jasper",
+      "url": "https://codeload.github.com/jasper-software/jasper/tar.gz/refs/tags/version-4.2.5",
+      "sha256": "3f4b1df7cab7a3cc67b9f6e28c730372f030b54b0faa8548a9ee04ae83fffd44",
+      "pinned_sha256_match": true
+    },
+    {
+      "name": "libjpeg-turbo",
+      "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.3/libjpeg-turbo-3.1.3.tar.gz",
+      "sha256": "075920b826834ac4ddf97661cc73491047855859affd671d52079c6867c1c6c0",
+      "pinned_sha256_match": true
+    },
+    {
+      "name": "lcms",
+      "url": "https://downloads.sourceforge.net/project/lcms/lcms/2.11/lcms2-2.11.tar.gz",
+      "sha256": "dc49b9c8e4d7cdff376040571a722902b682a795bf92985a85b48854c270772e",
+      "pinned_sha256_match": true
+    }
+  ],
+  "gnu_openmp": {
+    "binary_rpm": "libgomp-8.5.0-28.el8_10.alma.1.x86_64.rpm",
+    "build_id": "2244452c1de4759ccb52adc5352b501d4c2ee9ce",
+    "build_id_matches_rawpy_runtime": true,
+    "source_rpm_url": "https://repo.almalinux.org/vault/8/BaseOS/Source/Packages/gcc-8.5.0-28.el8_10.alma.1.src.rpm",
+    "source_rpm_sha256": "c94dbbd2cd6d5d01a5a6822ea18f8ce34942c25a80e17b4682d547d5e652dbd0",
+    "source_rpm_bytes": 65715094
+  },
+  "notice_files": [
+    {
+      "path": "GNU-OpenMP/COPYING.RUNTIME",
+      "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74"
+    },
+    {
+      "path": "GNU-OpenMP/COPYING3",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "path": "GNU-OpenMP/libgomp-COPYRIGHT.txt",
+      "sha256": "d31f47c9ec7ea2094f7430e6595647a820d25bd6df7bb97c4a68232c69c13a53",
+      "source_file": "gcc-8.5.0-20210514/libgomp/libgomp.h",
+      "source_file_sha256": "0fbd6fcdfa137bc1a49721b42d8b2177c618195781bea18f3030c2317ad70414",
+      "extraction": "First C copyright/permission comment, verbatim with a terminating newline"
+    }
+  ],
+  "rawpy_source": {
+    "commit": "a39c2e7a44911889c3360891012f862f904ba551",
+    "tag": "v0.27.1",
+    "url": "https://codeload.github.com/letmaik/rawpy/tar.gz/a39c2e7a44911889c3360891012f862f904ba551",
+    "sha256": "f74ab60868c850afce9107e889c103eff3cf7b4b9c33121e74497e3a31a37423",
+    "bytes": 76019297,
+    "builder_scripts_match": true
+  }
+}

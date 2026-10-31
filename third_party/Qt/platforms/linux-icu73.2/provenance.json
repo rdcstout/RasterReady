@@ -1,0 +1,33 @@
+{
+  "scope": "ICU 73.2 libraries included by the Linux Qt wheel; not a claim that these libraries occur on other platforms",
+  "version_evidence": "ELF u_getVersion_73 reads the literal 73.2 before calling the version parser",
+  "binaries": [
+    {
+      "file": "libicudata.so.73",
+      "sha256": "4d24b3a908dd838bea23414e16aa830d05a2a306c475246ab11ef0a00c3037e9"
+    },
+    {
+      "file": "libicui18n.so.73",
+      "sha256": "ad5410f3e4eb4f01f91d10ddb3780cdbcbeb902ed04a3bc4d3f562b956578d52"
+    },
+    {
+      "file": "libicuuc.so.73",
+      "sha256": "8ce3427af0d2bf566bb422ce80a12014137d12ed452fe2dd9ed481ee46181168"
+    }
+  ],
+  "notices": [
+    {
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/unicode-org/icu/release-73-2/icu4c/LICENSE",
+      "git_blob": "22472dc2ec219cd7d4d97a66e9a3cce6e2a4acc1",
+      "sha256": "f3005e195ff74d8812cc1f182a1c446fab678d70a10e3dada497585befee5416"
+    },
+    {
+      "file": "license.html",
+      "url": "https://raw.githubusercontent.com/unicode-org/icu/release-73-2/icu4c/license.html",
+      "git_blob": "24846726670049cb129f1d72a9dd097ded9712d1",
+      "sha256": "c62d7697c03979f5056d28b338fafc7a1152820f7b379adf4a9d88cd37160f96"
+    }
+  ],
+  "source": "https://github.com/unicode-org/icu/tree/release-73-2/icu4c"
+}

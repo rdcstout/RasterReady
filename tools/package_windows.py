@@ -70,10 +70,12 @@ def package(bundle, output, version, compiler, development):
     parsed = Version(version)
     if output.exists() or output.is_symlink() or output.is_relative_to(bundle):
         raise ValueError("Use a new output directory outside the bundle")
-    if not development:
-        raise ValueError(
-            "Licensing and native installer acceptance are pending; use a development trial"
-        )
+    if not development and (
+        parsed.is_prerelease or parsed.is_devrelease or parsed.local or parsed.epoch
+    ):
+        raise ValueError("A candidate requires a stable public version")
+    if not development and sys.platform != "win32":
+        raise ValueError("Build Windows candidates on native Windows")
     executable_metadata = audit(bundle / "RasterReady.exe", version)
     flag = "/" if sys.platform == "win32" else "-"
     result = subprocess.run(
@@ -83,7 +85,8 @@ def package(bundle, output, version, compiler, development):
         raise ValueError("Use the pinned NSIS 3.13 compiler")
     output.mkdir(parents=True)
     files = write_file_lists(bundle, output)
-    artifact = output / f"RasterReady-{parsed}-windows-x64-development.exe"
+    suffix = "-development" if development else ""
+    artifact = output / f"RasterReady-{parsed}-windows-x64{suffix}.exe"
     arguments = [str(compiler), flag + "WX", flag + "V2"]
     definitions = {
         "OUTPUT_FILE": artifact,
@@ -110,7 +113,9 @@ def package(bundle, output, version, compiler, development):
                 "artifact": artifact.name,
                 "sha256": digest,
                 "version": str(parsed),
-                "kind": "unsigned-development-installer",
+                "kind": "unsigned-development-installer"
+                if development
+                else "unsigned-local-candidate",
                 "release_ready": False,
                 "payload": payload,
                 "native_install_upgrade_uninstall_acceptance": False,
@@ -120,7 +125,7 @@ def package(bundle, output, version, compiler, development):
         )
         + "\n"
     )
-    print(f"Prepared {artifact}; unsigned, unverified on Windows and not for distribution.")
+    print(f"Prepared {artifact}; unsigned; exact-artifact acceptance and release approval remain.")
 
 
 if __name__ == "__main__":

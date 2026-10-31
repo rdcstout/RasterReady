@@ -46,7 +46,8 @@ analysis = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["PySide6.QtQml", "PySide6.QtQuick"],
+    # No interactive Python console is provided; avoid its unused Readline dependency.
+    excludes=["PySide6.QtQml", "PySide6.QtQuick", "readline"],
     noarchive=False,
     optimize=0,
 )

@@ -66,6 +66,10 @@ def main():
 
         result = audit(args.dist_dir.resolve() / "RasterReady/RasterReady.exe", __version__)
         print(f"Verified Windows executable identity and version {result['version']}")
+    elif sys.platform == "linux":
+        from tools.collect_linux_runtime_notices import collect
+
+        collect(args.dist_dir.resolve() / "RasterReady")
 
 
 if __name__ == "__main__":
