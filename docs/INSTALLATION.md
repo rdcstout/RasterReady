@@ -1,6 +1,6 @@
 # Install and use RasterReady
 
-**Release preview:** no installers are published yet. The instructions below describe the prepared 0.1.0 packages. Check the [releases page](https://github.com/rdcstout/RasterReady/releases) for availability. Published downloads will be free and include SHA-256 checksums, versioned packages, identical stable-name downloads, and matching source materials.
+Download the package for your computer from the [latest release](https://github.com/rdcstout/RasterReady/releases/latest). Downloads are free. The release includes SHA-256 checksums, versioned packages, identical stable-name downloads, and matching source materials.
 
 ## macOS
 

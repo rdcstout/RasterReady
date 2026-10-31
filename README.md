@@ -1,22 +1,20 @@
 # RasterReady
 
-[![RasterReady — Drop. Resize. Done.](docs/assets/rasterready-hero.png)](https://extrusiontherapy.com/Software)
+[![RasterReady — Drop. Resize. Done.](docs/assets/rasterready-hero.png)](https://extrusiontherapy.com/SoftwareRasterReady)
 
 Prepare images for websites and sales listings. Name a project, drop in a batch, and retrieve clean PNGs directly from **Downloads / your project name**. Embedded metadata is removed and originals are preserved.
-
-**Release preview:** installers and the website entry are not published yet.
 
 ## Download
 
 | Platform | System | Installer |
 | --- | --- | --- |
-| **macOS** | Apple Silicon, macOS 26+ | DMG · coming soon |
-| **Windows** | Windows 11, x64 | Installer · coming soon |
-| **Linux** | x86-64, Ubuntu 24.04/glibc 2.39+ | DEB and AppImage · coming soon |
+| **macOS** | Apple Silicon, macOS 26+ | **[Download DMG](https://github.com/rdcstout/RasterReady/releases/latest/download/RasterReady-macos-arm64.dmg)** |
+| **Windows** | Windows 11, x64 | **[Download installer](https://github.com/rdcstout/RasterReady/releases/latest/download/RasterReady-windows-x64.exe)** |
+| **Linux** | x86-64, Ubuntu 24.04/glibc 2.39+ | **[Download DEB](https://github.com/rdcstout/RasterReady/releases/latest/download/RasterReady-linux-x64.deb)** · **[AppImage](https://github.com/rdcstout/RasterReady/releases/latest/download/RasterReady-linux-x64.AppImage)** |
 
 Downloads are free. Mac is signed and notarized; Windows is unsigned. See [installation and compatibility](docs/INSTALLATION.md) for requirements and tested platforms.
 
-[Watch for releases](https://github.com/rdcstout/RasterReady/releases). Published installers will include SHA-256 checksums.
+[Release notes](https://github.com/rdcstout/RasterReady/releases/latest) · [SHA-256 checksums](https://github.com/rdcstout/RasterReady/releases/latest/download/SHA256SUMS.txt)
 
 ## Get started
 
@@ -28,7 +26,7 @@ Enter a project name, choose a size preset, and drop images or choose files. Ope
 
 [Report a bug](https://github.com/rdcstout/RasterReady/issues) · [Private security reporting](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Build from source](DEVELOPMENT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [MIT license](LICENSE)
 
-Created by [Extrusion Therapy](https://extrusiontherapy.com).
+Created by [Extrusion Therapy](https://extrusiontherapy.com/SoftwareRasterReady).
 
 ## Support Future Tools
 

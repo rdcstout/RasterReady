@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-RasterReady is unreleased. Identify the source commit in a report; development builds are not supported stable releases. After a stable release, fixes will target the latest stable version, with no promised backports.
+RasterReady 0.1.0 is the current stable release. Fixes target the latest stable version, with no promised backports. Identify the version or source commit in a report; development builds are not supported stable releases.
 
 ## Private reporting
 
