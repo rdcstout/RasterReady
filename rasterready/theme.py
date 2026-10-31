@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QByteArray, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPalette, QPixmap
 from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QApplication
 
 PALETTES = {
     "light": dict(
@@ -80,6 +81,9 @@ def apply(window, name: str):
         QPalette.ColorRole.WindowText,
     ):
         palette.setColor(QPalette.ColorGroup.Disabled, role, QColor(c["disabled"]))
+    # Top-level dialogs inherit the application palette, not their parent's.
+    # Keep their backgrounds consistent with the text stylesheet they inherit.
+    QApplication.instance().setPalette(palette)
     window.setPalette(palette)
     window.setStyleSheet(f"""
       QWidget {{ font-size: 15px; color: {c["text"]}; }}
