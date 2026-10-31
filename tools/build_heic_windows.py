@@ -28,7 +28,10 @@ def run(arguments, environment):
 
 def visual_studio(environment):
     """Select an installed supported C++ toolchain rather than assume VS 2022."""
-    program_files = environment.get("ProgramFiles(x86)")
+    # os.environ is case-insensitive on Windows, but its copied dict is not.
+    program_files = next(
+        (value for key, value in environment.items() if key.upper() == "PROGRAMFILES(X86)"), None
+    )
     if not program_files:
         raise SystemExit("Cannot locate the Visual Studio installer; install C++ build tools.")
     locator = Path(program_files) / "Microsoft Visual Studio/Installer/vswhere.exe"

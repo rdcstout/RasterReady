@@ -9,10 +9,14 @@ from tools import build_heic_windows as builder
 
 
 @pytest.mark.parametrize(
-    ("version", "generator"),
-    [("17.14.1", "Visual Studio 17 2022"), ("18.0.2", "Visual Studio 18 2026")],
+    ("key", "version", "generator"),
+    [
+        ("ProgramFiles(x86)", "17.14.1", "Visual Studio 17 2022"),
+        ("ProgramFiles(x86)", "18.0.2", "Visual Studio 18 2026"),
+        ("PROGRAMFILES(X86)", "18.0.2", "Visual Studio 18 2026"),
+    ],
 )
-def test_selects_installed_cpp_instance(tmp_path, monkeypatch, version, generator):
+def test_selects_installed_cpp_instance(tmp_path, monkeypatch, key, version, generator):
     locator = tmp_path / "Microsoft Visual Studio/Installer/vswhere.exe"
     locator.parent.mkdir(parents=True)
     locator.touch()
@@ -30,7 +34,7 @@ def test_selects_installed_cpp_instance(tmp_path, monkeypatch, version, generato
         )
 
     monkeypatch.setattr(builder.subprocess, "run", locate)
-    assert builder.visual_studio({"ProgramFiles(x86)": str(tmp_path)}) == (
+    assert builder.visual_studio({key: str(tmp_path)}) == (
         generator,
         installation,
     )
