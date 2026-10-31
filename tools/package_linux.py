@@ -10,6 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from audit_linux_bundle import GLIBC_BASELINE, audit
 from linux_package_tools import verify
 from packaging.version import Version
 
@@ -82,7 +83,8 @@ def stage(bundle, output, version):
     control.write_text(
         f"Package: rasterready\nVersion: {deb_version}\nArchitecture: amd64\n"
         "Maintainer: RasterReady project\nSection: graphics\nPriority: optional\n"
-        "Depends: libc6 (>= 2.39), libstdc++6, libgcc-s1, libegl1, libgl1, "
+        f"Depends: libc6 (>= {'.'.join(map(str, GLIBC_BASELINE))}), "
+        "libstdc++6, libgcc-s1, libegl1, libgl1, "
         "libxkbcommon-x11-0, libxcb-cursor0, libxcb-icccm4, libxcb-keysyms1, "
         "libxcb-randr0, libxcb-shape0, libxcb-xfixes0, libxcb-sync1, libxcb-xkb1\n"
         "Homepage: https://github.com/rdcstout/RasterReady\n"
@@ -107,6 +109,9 @@ def build(output, appdir, deb, manifest, tool_directory):
         raise ValueError(
             "Native package building requires Linux x64; use --stage-only for inspection"
         )
+    # Audit the complete payload, including system libraries collected by PyInstaller.
+    # A portable decoder wheel alone does not establish application compatibility.
+    manifest["glibc_audit"] = audit(appdir / "usr/lib/rasterready")
     verify(tool_directory)
     desktop = appdir / "rasterready.desktop"
     subprocess.run(["desktop-file-validate", str(desktop)], check=True)

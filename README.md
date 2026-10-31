@@ -4,7 +4,7 @@ Prepare images for websites and sales listings. Name a project, drop in a batch,
 
 RasterReady offers common web widths, marketplace suggestions, custom fit/crop/padding, Sony RAW development, and Light, Dark or system appearance. Images are oriented and converted to sRGB before embedded metadata is discarded. Transparency is preserved except where a preset calls for white output. Visible information in the picture or filename is still visible.
 
-**In development. No installer release is available yet.** Target platforms are Apple Silicon macOS 26 or later, Windows x64 and Linux x64. Local Mac checks cover representative JPEG/PNG and Sony A7 III, A7 IV and A7R IV ARW files; Windows/Linux runtime acceptance is pending. Camera support depends on LibRaw and the camera's RAW mode.
+**In development. No installer release is available yet.** Target platforms are Apple Silicon macOS 26 or later, Windows x64 and Linux x64. Local Mac checks cover representative JPEG/PNG and Sony A7 III, A7 IV and A7R IV ARW files; Ubuntu 26.04 checks cover PNG and Sony A7 III conversion; Windows runtime acceptance is pending. Camera support depends on LibRaw and the camera's RAW mode.
 
 ## Use
 

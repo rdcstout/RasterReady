@@ -46,7 +46,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libxkbcommon-x11-0 libxcb-cursor0 g++ pkg-config patchelf desktop-file-utils
+          sudo apt-get install -y --no-install-recommends libegl1 libxkbcommon-x11-0 libxcb-cursor0 g++ pkg-config patchelf desktop-file-utils binutils
       - name: Install pinned dependencies
         run: |
           python -m pip install --upgrade pip==26.2.2
