@@ -15,6 +15,9 @@ concurrency:
 
 jobs:
   checks:
+    defaults:
+      run:
+        shell: bash
     name: ${{ matrix.os }} / Python 3.12
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -54,7 +57,9 @@ jobs:
           python -m pip check
       - name: Windows decoder-only HEIC build trial
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           python -m pip install -r requirements-heic-build.txt
           python tools/build_heic_windows.py ../heic-native
           python -c "import pathlib, subprocess, sys; wheels = list(pathlib.Path('../heic-native/wheels').glob('*.whl')); assert len(wheels) == 1; subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-deps', '--force-reinstall', str(wheels[0])], check=True)"
@@ -73,7 +78,9 @@ jobs:
         run: python build.py ${{ runner.os != 'macOS' && '--decoder-only-heic' || '' }}
       - name: Windows development installer trial
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           python tools/fetch_nsis_windows.py ../nsis-tool
           $appVersion = python -c "from rasterready import __version__; print(__version__)"
           python tools/package_windows.py dist/RasterReady ../windows-installer --version $appVersion --makensis ../nsis-tool/nsis-3.13/makensis.exe --development

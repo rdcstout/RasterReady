@@ -1,6 +1,6 @@
 """Prepare a decoder-only HEIC wheel on Windows x64; native execution pending.
 
-Requires CPython 3.12 and Visual Studio 2022 C++ build tools. Does not install or
+Requires CPython 3.12 and Visual Studio 2022 or 2026 C++ build tools. Does not install or
 publish the wheel. Uses a private prefix, not an existing MSYS2 installation.
 """
 
@@ -16,11 +16,52 @@ import sys
 from pathlib import Path
 from zipfile import ZipFile
 
-from heic_sources import SOURCES, decoder_configurations, fetch_sources, include_notices
+if __package__:
+    from .heic_sources import SOURCES, decoder_configurations, fetch_sources, include_notices
+else:
+    from heic_sources import SOURCES, decoder_configurations, fetch_sources, include_notices
 
 
 def run(arguments, environment):
     subprocess.run([str(value) for value in arguments], env=environment, check=True)
+
+
+def visual_studio(environment):
+    """Select an installed supported C++ toolchain rather than assume VS 2022."""
+    program_files = environment.get("ProgramFiles(x86)")
+    if not program_files:
+        raise SystemExit("Cannot locate the Visual Studio installer; install C++ build tools.")
+    locator = Path(program_files) / "Microsoft Visual Studio/Installer/vswhere.exe"
+    if not locator.is_file():
+        raise SystemExit("Visual Studio vswhere.exe is missing; install C++ build tools.")
+    result = subprocess.run(
+        [
+            str(locator),
+            "-latest",
+            "-products",
+            "*",
+            "-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-format",
+            "json",
+            "-utf8",
+        ],
+        check=True,
+        capture_output=True,
+        encoding="utf-8-sig",
+    )
+    instances = json.loads(result.stdout)
+    if len(instances) != 1:
+        raise SystemExit("No installed Visual Studio C++ x64 toolchain was found.")
+    instance = instances[0]
+    major = instance["installationVersion"].split(".")[0]
+    generator = {"17": "Visual Studio 17 2022", "18": "Visual Studio 18 2026"}.get(major)
+    if generator is None:
+        raise SystemExit(f"Unsupported Visual Studio version: {instance['installationVersion']}")
+    location = Path(instance["installationPath"])
+    if not location.is_dir():
+        raise SystemExit("The detected Visual Studio installation directory does not exist.")
+    return generator, location
 
 
 def build(output):
@@ -42,12 +83,14 @@ def build(output):
     # Upstream stages libheif headers from this named prefix. Supply only the
     # matching CMake install; no system MSYS2 files or include paths are used.
     environment["MSYS2_PREFIX"] = str(prefix)
+    generator, compiler_instance = visual_studio(environment)
     sources = fetch_sources(output)
     common = [
         "-G",
-        "Visual Studio 17 2022",
+        generator,
         "-A",
         "x64",
+        f"-DCMAKE_GENERATOR_INSTANCE={compiler_instance}",
         f"-DCMAKE_INSTALL_PREFIX={prefix}",
         "-DCMAKE_INSTALL_LIBDIR=lib",
         "-DBUILD_SHARED_LIBS=ON",
@@ -129,6 +172,8 @@ def build(output):
         "wheel": wheel.name,
         "sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
         "platform": "windows-x64",
+        "cmake_generator": generator,
+        "compiler_instance": str(compiler_instance),
         "dlls": sorted(libraries),
         "import_library_alias": "heif.lib copied as libheif.lib for upstream extension lookup",
         "release_ready": False,

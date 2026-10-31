@@ -1,0 +1,3 @@
+# Retained upstream notices and fixtures are checked against exact byte hashes.
+# Preserve committed bytes on Windows as well as Unix checkouts.
+* -text

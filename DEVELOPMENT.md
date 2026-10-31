@@ -43,9 +43,9 @@ For updates, test a manual request with connectivity and offline failure, weekly
 
 ## Automated checks
 
-The source includes `.github/workflows/checks.yml` for Ubuntu 24.04 x64, Windows 2025 x64 and Apple Silicon macOS 26, using Python 3.12. It runs tests, style/compile/dependency checks and a development bundle build. It has read-only repository permission and publishes no binaries or releases. The workflow has not run remotely while source publication remains pending; local checks do not establish results on another platform. Even a passing remote build does not replace exact installer runtime acceptance.
+The source includes `.github/workflows/checks.yml` for Ubuntu 24.04 x64, Windows 2025 x64 and Apple Silicon macOS 26, using Python 3.12. It runs tests, style/compile/dependency checks and a development bundle build. It has read-only repository permission and publishes no binaries or releases. Check the Actions results for the exact source commit; local checks do not establish results on another platform. Even a passing remote build does not replace exact installer runtime acceptance.
 
-The Linux job includes a decoder-only HEIC build trial before its application tests and bundle build. It requests the Ubuntu 24.04 build baseline explicitly; this trial is unexecuted and does not establish a final Linux minimum or installer compatibility. The Windows job also includes its native decoder build trial before testing. The Mac CI development job still uses an upstream HEIC wheel. None of these jobs publishes release packages.
+The Linux job includes a decoder-only HEIC build trial before its application tests and bundle build. It requests the Ubuntu 24.04 build baseline explicitly. The first native Linux CI trial completed the decoder build, tests, application bundle and development DEB/AppImage packaging; this does not establish a final Linux minimum or installer compatibility. The Windows job also includes its native decoder build trial before testing. The Mac CI development job still uses an upstream HEIC wheel. None of these jobs publishes release packages.
 
 ## Packaging and release
 
@@ -106,9 +106,9 @@ The decoder-only Mac bundle keeps libde265 separate at `Contents/Frameworks/pill
 A local Apple Silicon check rebuilt libde265 1.1.3 with a version-string-only change, replaced it in a copied development app, and signed that copy with Developer ID, hardened runtime and a timestamp. Strict/deep signature verification passed. The running app mapped the replacement library and converted an owned HEIC to a pixel-identical, metadata-free PNG. This verifies that specific replacement route; it does not verify an unsigned replacement, notarization of modified apps, replacement of Qt/LibRaw, other operating systems or arbitrary ABI changes. For a release, supply the matching source/build materials and verify the applicable replacement procedure against the final artifact.
 
 
-### Linux decoder build trial — native execution pending
+### Linux decoder build trial
 
-`tools/build_heic_linux.py` is a prepared native Linux x64 builder. The source downloader and notice inclusion have been checked on Mac with the actual pinned archives; compilation, wheel repair and fresh-environment decoding on Linux remain unverified. Its commands are a validation trial, not a completed release procedure.
+`tools/build_heic_linux.py` builds a decoder-only wheel on native Linux x64. The Ubuntu 24.04 CI trial completed compilation, wheel repair, installation, codec tests and development app packaging. Final installer acceptance and runtime compatibility beyond that runner remain unverified.
 
 On an isolated Linux x64 build system with a C++ compiler, pkg-config and patchelf available, install `requirements-heic-build.txt` into the build virtual environment. Run `python tools/build_heic_linux.py ../heic-linux` with a new directory. The default requested ceiling is `manylinux_2_34_x86_64`; the CI Ubuntu 24.04 trial explicitly requests `--platform-tag manylinux_2_39_x86_64`. Stop if compilation or repair fails. Do not bypass a compatibility failure by relabeling the wheel; use a compatible build host for the intended baseline.
 
@@ -117,9 +117,9 @@ The builder shares the Mac source pins, disables external codec plugins and all 
 
 ### Windows decoder build trial — native execution pending
 
-`tools/build_heic_windows.py` is a prepared Windows x64 prototype for CPython 3.12 and Visual Studio 2022 C++ build tools. Compilation, repaired-wheel import and decoding on Windows remain unverified. In a dedicated Windows build environment, install `requirements-heic-build.txt`, then try `python tools/build_heic_windows.py ../heic-windows` with a new directory. Stop on a compiler, repair or inventory failure; do not distribute an unverified wheel.
+`tools/build_heic_windows.py` is a prepared Windows x64 prototype for CPython 3.12 and Visual Studio 2022 or 2026 C++ build tools. Compilation, repaired-wheel import and decoding on Windows remain unverified. In a dedicated Windows build environment, install `requirements-heic-build.txt`, then try `python tools/build_heic_windows.py ../heic-windows` with a new directory. Stop on a compiler, repair or inventory failure; do not distribute an unverified wheel.
 
-The prototype builds shared libde265/libheif with the same codec options as the Linux trial. Upstream's Python extension expects an MSYS2-style header prefix and an import library named `libheif.lib`. This trial supplies a private CMake prefix through that environment variable and copies CMake's `heif.lib` to a matching name; it does not use or change an existing MSYS2 installation. This compatibility route needs native confirmation.
+The builder detects an installed Visual Studio C++ x64 toolchain with `vswhere`, selecting the matching CMake generator and installation explicitly. CI stops on native command failures rather than continuing with a stock decoder. The prototype builds shared libde265/libheif with the same codec options as the Linux trial. Upstream's Python extension expects an MSYS2-style header prefix and an import library named `libheif.lib`. This trial supplies a private CMake prefix through that environment variable and copies CMake's `heif.lib` to a matching name; it does not use or change an existing MSYS2 installation. This compatibility route needs native confirmation.
 
 [Delvewheel 1.13.2](https://pypi.org/project/delvewheel/1.13.2/) repairs the wheel's DLL dependencies. The builder checks for the decoder DLLs, rejects unexpected DLLs, verifies x64 PE headers, retains sources/notices/build instructions and emits a non-release manifest. Compiler runtime distribution notices remain part of final native-component review.
 
@@ -141,7 +141,7 @@ On Windows, the bundle spec uses `tools/windows_version.py` to supply PyInstalle
 After a Windows build, `build.py` inspects the actual x64 PE file's numeric versions, flags and identity strings and fails on a mismatch. The installer packager repeats that check against its requested version before compiling and records the executable's metadata/hash in its manifest. These native resource generation/build checks are prepared but have not run on Windows. Portable version-boundary tests pass; a Windows-only serializer roundtrip test runs in the native CI job. Static Mac inspection confirmed that the existing unmodified bootloader fixture is rejected without changing it or creating installer output. This does not prove a successful Windows application build, file-properties appearance or native installation.
 
 
-### Linux DEB/AppImage trial — native build and acceptance pending
+### Linux DEB/AppImage trial — native acceptance pending
 
 `tools/package_linux.py` stages an ELF64 x86_64 PyInstaller bundle into an AppDir and Debian directory tree. It validates executable type and contained symlinks, includes a desktop entry and launchers, and preserves the bundle's files. The selected red product icon is installed at eight hicolor PNG sizes; AppDir uses a 256-pixel root icon with a matching `.DirIcon` link. Native desktop appearance remains unverified.
 
@@ -149,7 +149,7 @@ For an isolated staging inspection, supply the bundle, a new output directory, `
 
 The prepared Ubuntu 24.04 CI trial uses `tools/linux_package_tools.py` to fetch hash-pinned appimagetool 1.9.1 and type2-runtime 20251108. Both downloads were verified locally. Native Linux mode requires that `--tool-directory`, dpkg-deb and desktop-file-validate. It builds a root-owned DEB without a root build process and supplies the pinned runtime explicitly to appimagetool. Only the builder uses extraction mode; the resulting AppImage must later be tested through its normal executable path.
 
-The DEB's current development metadata targets Ubuntu 24.04/glibc 2.39 with a provisional desktop-library dependency list. Final dependency closure, maintainer metadata, runtime notices/source obligations and install/remove behavior remain unverified. No maintainer email is invented. AppImage desktop/runtime compatibility is also unverified. These native builds have not run remotely; no usable DEB or AppImage release has been established. Package names contain `-development`, candidate mode is refused and manifests remain `release_ready: false`. After a native build, normal DEB installation and normal AppImage launch, image conversion, settings persistence, quit/relaunch and applicable upgrade/removal checks remain required before publication.
+The DEB's current development metadata targets Ubuntu 24.04/glibc 2.39 with a provisional desktop-library dependency list. Final dependency closure, maintainer metadata, runtime notices/source obligations and install/remove behavior remain unverified. No maintainer email is invented. AppImage desktop/runtime compatibility is also unverified. The Ubuntu 24.04 CI trial built both development package formats; no usable DEB or AppImage release has been established through normal desktop acceptance. Package names contain `-development`, candidate mode is refused and manifests remain `release_ready: false`. After a native build, normal DEB installation and normal AppImage launch, image conversion, settings persistence, quit/relaunch and applicable upgrade/removal checks remain required before publication.
 
 
 ### Mac signing

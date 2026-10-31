@@ -16,7 +16,7 @@ def test_bundle_preserves_inputs_and_is_reproducible(tmp_path, monkeypatch):
     inputs.mkdir()
     root.mkdir()
     (root / "third_party").mkdir()
-    (root / "third_party/LICENSE").write_text("retained license\n")
+    (root / "third_party/LICENSE").write_bytes(b"retained license\r\n")
     (root / "tools").mkdir()
     for name in (
         "DEVELOPMENT.md",
@@ -50,7 +50,7 @@ def test_bundle_preserves_inputs_and_is_reproducible(tmp_path, monkeypatch):
         assert manifest["release_ready"] is False
         assert manifest["source_revision"] == "abc123"
         assert bundle.extractfile("archives/codec.tar.gz").read() == original
-        assert bundle.extractfile("third_party/LICENSE").read() == b"retained license\n"
+        assert bundle.extractfile("third_party/LICENSE").read() == b"retained license\r\n"
     with pytest.raises(ValueError, match="existing files"):
         sources.package(inputs, first, "abc123", root)
     before = first.read_bytes()
