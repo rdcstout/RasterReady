@@ -173,7 +173,7 @@ The tool preserves its staged payload and manifests with artifact hashes, app co
 
 The Mac short/build versions use the numeric base of `rasterready.__version__`; `RasterReadyVersion` and the bundle information string retain the full development/prerelease version. For example, `0.1.0.dev0` produces numeric bundle versions `0.1.0` and a full version of `0.1.0.dev0`. This is development metadata, not a stable release declaration. Metadata is applied before signing; do not edit the signed bundle afterward. The spec disables UPX and keeps the existing decoder-data and native signing options. Final package runtime acceptance is still required.
 
-After a Mac build, `build.py` runs `tools/audit_macos_bundle.py` and fails if the bundle versions disagree with the app, any native binary is not arm64, or a native deployment target exceeds the declared minimum. The audit can also be run separately: `python tools/audit_macos_bundle.py /path/to/RasterReady.app --version 0.1.0.dev0`. Its JSON output includes hashes and explicitly does not certify signing, notarization, runtime acceptance or release readiness.
+After a Mac build, `build.py` runs `tools/audit_macos_bundle.py` and fails if the bundle versions disagree with the app, any native binary is not arm64, or a native deployment target exceeds the declared minimum. The audit can also be run separately: `python tools/audit_macos_bundle.py /path/to/RasterReady.app --version 0.1.0`. Its JSON output includes hashes and explicitly does not certify signing, notarization, runtime acceptance or release readiness.
 
 
 ### Selected product icon
