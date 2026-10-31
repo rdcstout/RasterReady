@@ -38,6 +38,10 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             requirements-dev.txt
+      - name: Create isolated build environment
+        run: |
+          python -m venv .venv
+          python -c "import os; from pathlib import Path; scripts = Path('.venv').resolve() / ('Scripts' if os.name == 'nt' else 'bin'); target = Path(os.environ['GITHUB_PATH']); target.write_text(target.read_text(encoding='utf-8') + str(scripts) + '\n', encoding='utf-8')"
       - name: Linux Qt runtime libraries
         if: runner.os == 'Linux'
         run: |

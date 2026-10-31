@@ -97,6 +97,12 @@ def collect(output):
             "sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
         }
 
+    manifest["application"] = {
+        "name": "RasterReady",
+        "notice": copy(
+            Path(__file__).resolve().parents[1] / "LICENSE", Path("RasterReady") / "LICENSE.txt"
+        ),
+    }
     for name in COMPONENTS:
         dist = metadata.distribution(name)
         component = {"name": name, "version": dist.version, "notices": []}
