@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QFileDialog,
     QFormLayout,
     QFrame,
@@ -34,15 +35,17 @@ from .core import PreparationError, Size, prepare, project_folder
 from .notices import NoticesDialog
 from .presets import PRESETS
 from .update_ui import UpdateChecker
+from .workbench import IMAGE_FILTER, ExportRequest, Workbench
 
 
 class Batch(QThread):
     completed = Signal(int, object, str)
 
-    def __init__(self, paths, folder, size, enlarge, preset, parent=None):
+    def __init__(self, paths, folder, size, enlarge, preset, parent=None, *, request=None):
         super().__init__(parent)
         self.paths, self.folder, self.size, self.enlarge = paths, folder, size, enlarge
         self.preset = preset
+        self.request = request
         self.cancel = Event()
 
     def run(self):
@@ -51,7 +54,21 @@ class Batch(QThread):
                 self.completed.emit(index, None, "Cancelled")
                 continue
             try:
-                result = prepare(path, self.folder, self.size, self.enlarge, self.preset.flatten)
+                if self.request is None:
+                    result = prepare(
+                        path, self.folder, self.size, self.enlarge, self.preset.flatten
+                    )
+                else:
+                    result = prepare(
+                        path,
+                        self.folder,
+                        self.size,
+                        self.enlarge,
+                        self.request.flatten,
+                        adjustments=self.request.adjustments,
+                        output_format=self.request.format,
+                        quality=self.request.quality,
+                    )
                 notes = self.preset.review(result)
                 from dataclasses import replace
 
@@ -168,6 +185,7 @@ class Window(QMainWindow):
         self.folder = None
         self.successes = 0
         self.done = 0
+        self.batch_format = "PNG"
         body = QWidget()
         body.setObjectName("body")
         self.setCentralWidget(body)
@@ -197,6 +215,8 @@ class Window(QMainWindow):
         self.choose_files_action = file_menu.addAction("Choose images…")
         self.choose_files_action.setShortcut("Ctrl+O")
         self.choose_files_action.triggered.connect(self.choose)
+        self.enhance_action = file_menu.addAction("Enhance && Export…")
+        self.enhance_action.triggered.connect(self.open_workbench)
         view_menu = self.menuBar().addMenu("View")
         self.choose_preset_action = view_menu.addAction("Choose size preset…")
         self.choose_preset_action.setShortcut("Ctrl+Shift+P")
@@ -383,8 +403,10 @@ class Window(QMainWindow):
         self.open.setMinimumHeight(42)
         self.open.setIconSize(QSize(20, 20))
         self.open.clicked.connect(self.open_folder)
+        self.enhance = QPushButton("Enhance && Export…")
+        self.enhance.clicked.connect(self.open_workbench)
         actions.addStretch()
-        for button in (self.export, self.stop, self.open):
+        for button in (self.enhance, self.export, self.stop, self.open):
             actions.addWidget(button)
         footer = QVBoxLayout()
         footer.setSpacing(12)
@@ -437,7 +459,7 @@ class Window(QMainWindow):
             self,
             "Choose images",
             "",
-            "Images and Sony RAW (*.jpg *.jpeg *.png *.heic *.heif *.avif *.webp *.tif *.tiff *.bmp *.gif *.ico *.ppm *.pgm *.tga *.arw *.ARW *.srf *.SRF *.sr2 *.SR2);;All files (*)",
+            IMAGE_FILTER,
         )
         if files:
             self.accept_files([Path(path) for path in files])
@@ -456,13 +478,7 @@ class Window(QMainWindow):
     def accept_files(self, paths):
         if self.worker is not None:
             return
-        self.paths = paths
-        self.table.setRowCount(len(paths))
-        for i, path in enumerate(paths):
-            self.table.setItem(i, 0, QTableWidgetItem(path.name))
-            self.table.item(i, 0).setToolTip(f"<qt>{escape(path.name)}</qt>")
-            self.table.setItem(i, 1, QTableWidgetItem("—"))
-            self.table.setItem(i, 2, QTableWidgetItem("Waiting"))
+        self.set_paths(paths)
         self.export.setEnabled(bool(paths))
         if self.project.text().strip():
             self.start()
@@ -471,6 +487,28 @@ class Window(QMainWindow):
             self.export.setVisible(True)
             self.project.setFocus()
 
+    def set_paths(self, paths):
+        self.paths = paths
+        self.table.setRowCount(len(paths))
+        for i, path in enumerate(paths):
+            self.table.setItem(i, 0, QTableWidgetItem(path.name))
+            self.table.item(i, 0).setToolTip(f"<qt>{escape(path.name)}</qt>")
+            self.table.setItem(i, 1, QTableWidgetItem("—"))
+            self.table.setItem(i, 2, QTableWidgetItem("Waiting"))
+
+    def open_workbench(self):
+        if self.worker is not None:
+            return
+        dialog = Workbench(
+            self, self.paths, self.project.text(), -1, self.enlarge.isChecked(), self.custom_size()
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            request = dialog.request
+            self.project.setText(request.project)
+            self.set_paths(request.paths)
+            self.start(request=request)
+        dialog.deleteLater()
+
     def open_notices(self):
         if getattr(sys, "frozen", False):
             directory = Path(sys._MEIPASS) / "third_party_notices"
@@ -478,7 +516,14 @@ class Window(QMainWindow):
             directory = Path(__file__).resolve().parents[1] / "third_party"
         NoticesDialog(directory, self).exec()
 
-    def start(self):
+    def custom_size(self):
+        return Size(
+            self.width.value(),
+            self.height.value() or None,
+            ["fit", "crop", "pad"][self.mode.currentIndex()],
+        )
+
+    def start(self, *, request: ExportRequest | None = None):
         if not self.paths or self.worker is not None:
             return
         try:
@@ -488,15 +533,14 @@ class Window(QMainWindow):
             if not downloads:
                 raise PreparationError("The system Downloads folder could not be located.")
             Path(downloads).mkdir(parents=True, exist_ok=True)
-            preset = PRESETS[self.preset.currentIndex()]
-            size = preset.size
-            if size is None:
-                size = Size(
-                    self.width.value(),
-                    self.height.value() or None,
-                    ["fit", "crop", "pad"][self.mode.currentIndex()],
-                )
-            size.validate()
+            if request is None:
+                preset = PRESETS[self.preset.currentIndex()]
+                size = preset.size or self.custom_size()
+                enlarge = self.enlarge.isChecked()
+            else:
+                preset, size, enlarge = request.preset, request.size, request.enlarge
+            if size is not None:
+                size.validate()
             self.folder = project_folder(Path(downloads), self.project.text())
         except (PreparationError, OSError) as exc:
             self.status.setText(str(exc))
@@ -509,8 +553,9 @@ class Window(QMainWindow):
         for i in range(len(self.paths)):
             self.table.item(i, 1).setText("—")
             self.table.item(i, 2).setText("Waiting")
+        self.batch_format = request.format if request else "PNG"
         self.worker = Batch(
-            tuple(self.paths), self.folder, size, self.enlarge.isChecked(), preset, self
+            tuple(self.paths), self.folder, size, enlarge, preset, self, request=request
         )
         self.worker.completed.connect(self.completed)
         self.worker.finished.connect(self.finished)
@@ -560,11 +605,13 @@ class Window(QMainWindow):
             self.table.item(index, column).setToolTip(f"<qt>{escape(text)}</qt>")
             self.table.item(index, column).setData(Qt.ItemDataRole.AccessibleDescriptionRole, text)
         self.status.setText(
-            f"Processed {self.done} of {len(self.paths)} • {self.successes} PNG(s) saved"
+            f"Processed {self.done} of {len(self.paths)} • {self.successes} {self.batch_format}(s) saved"
         )
 
     def set_busy(self, busy):
         self.choose_files_action.setEnabled(not busy)
+        self.enhance_action.setEnabled(not busy)
+        self.enhance.setEnabled(not busy)
         self.choose_preset_action.setEnabled(not busy)
         for widget in (
             self.project,
@@ -586,7 +633,7 @@ class Window(QMainWindow):
         self.set_busy(False)
         failures = len(self.paths) - self.successes
         self.status.setText(
-            f"{self.successes} PNG(s) ready"
+            f"{self.successes} {self.batch_format}(s) ready"
             + (f" · {failures} failed or cancelled" if failures else "")
         )
 

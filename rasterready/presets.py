@@ -31,7 +31,7 @@ class Preset:
             notes.append(f"Below the platform's {self.min_long}-pixel long-side guidance.")
         if self.max_bytes and result.output.stat().st_size > self.max_bytes:
             notes.append(
-                "PNG exceeds this preset's upload-size guidance. Choose a smaller custom size."
+                f"{result.output.suffix[1:].upper()} exceeds this preset's upload-size guidance. Choose a smaller custom size."
             )
         return tuple(notes)
 

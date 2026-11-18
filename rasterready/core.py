@@ -198,10 +198,7 @@ def _open_source(source: Path, notes: list[str]) -> Image.Image:
         ) from exc
 
 
-def prepare(
-    source: Path, destination: Path, size: Size, enlarge: bool = False, flatten: bool = False
-) -> Result:
-    size.validate()
+def load_pixels(source: Path) -> tuple[Image.Image, list[str]]:
     source = Path(source)
     notes = []
     try:
@@ -252,29 +249,8 @@ def prepare(
                         ) from exc
                 elif image.mode == "CMYK":
                     notes.append("No CMYK color profile; colors were approximated.")
-                image = _resize(image.convert(mode), size, enlarge)
-                if flatten:
-                    background = Image.new("RGBA", image.size, "white")
-                    background.alpha_composite(image.convert("RGBA"))
-                    image = background.convert("RGB")
-                # A fresh pixel buffer prevents EXIF, ICC, comments and PNG text from being copied.
-                clean = Image.frombytes(image.mode, image.size, image.tobytes())
-        stem = _output_stem(source.stem)
-        for number in range(10000):
-            suffix = f" ({number + 1})" if number else ""
-            output = destination / f"{stem}{suffix}.png"
-            try:
-                handle = output.open("xb")
-            except FileExistsError:
-                continue
-            try:
-                with handle:
-                    clean.save(handle, format="PNG", optimize=True)
-            except BaseException:
-                output.unlink(missing_ok=True)
-                raise
-            return Result(output, clean.width, clean.height, tuple(notes))
-        raise PreparationError("Too many files share that name. Choose another project.")
+                return image.convert(mode), notes
+
     except PreparationError:
         raise
     except (Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
@@ -283,5 +259,64 @@ def prepare(
         raise PreparationError(
             "Unsupported or damaged image. Try JPEG, PNG, HEIC, AVIF, WebP, TIFF or BMP."
         ) from exc
+    except (OSError, ValueError) as exc:
+        raise PreparationError(f"Could not prepare this image: {exc}") from exc
+
+
+def prepare(
+    source: Path,
+    destination: Path,
+    size: Size | None,
+    enlarge: bool = False,
+    flatten: bool = False,
+    *,
+    adjustments=None,
+    output_format: str = "PNG",
+    quality: int = 95,
+) -> Result:
+    if size is not None:
+        size.validate()
+    formats = {"PNG": "png", "JPEG": "jpg", "TIFF": "tiff"}
+    if output_format not in formats or not 1 <= quality <= 100:
+        raise PreparationError("Choose a supported export format and quality between 1 and 100.")
+    extension = formats[output_format]
+    options = {"optimize": True} if output_format == "PNG" else {}
+    if output_format == "JPEG":
+        options["quality"] = quality
+    try:
+        source = Path(source)
+        image, notes = load_pixels(source)
+        if adjustments is not None:
+            image = adjustments.apply(image, max_pixels=MAX_PIXELS)
+        if size is not None:
+            image = _resize(image, size, enlarge)
+        elif image.width > 20000 or image.height > 20000 or image.width * image.height > MAX_PIXELS:
+            raise PreparationError(
+                "The image exceeds the output limit. Choose a smaller size preset."
+            )
+        if flatten or (image.mode == "RGBA" and output_format == "JPEG"):
+            background = Image.new("RGBA", image.size, "white")
+            background.alpha_composite(image.convert("RGBA"))
+            image = background.convert("RGB")
+        # A new pixel buffer discards source EXIF, ICC, comments and PNG text.
+        clean = Image.frombytes(image.mode, image.size, image.tobytes())
+        stem = _output_stem(source.stem)
+        for number in range(10000):
+            suffix = f" ({number + 1})" if number else ""
+            output = destination / f"{stem}{suffix}.{extension}"
+            try:
+                handle = output.open("xb")
+            except FileExistsError:
+                continue
+            try:
+                with handle:
+                    clean.save(handle, format=output_format, **options)
+            except BaseException:
+                output.unlink(missing_ok=True)
+                raise
+            return Result(output, clean.width, clean.height, tuple(notes))
+        raise PreparationError("Too many files share that name. Choose another project.")
+    except PreparationError:
+        raise
     except (OSError, ValueError) as exc:
         raise PreparationError(f"Could not prepare this image: {exc}") from exc
