@@ -87,27 +87,28 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           python tools/fetch_nsis_windows.py ../nsis-tool
           $appVersion = python -c "from rasterready import __version__; print(__version__)"
-          python tools/package_windows.py dist/RasterReady ../windows-installer --version $appVersion --makensis ../nsis-tool/nsis-3.13/makensis.exe --development
+          python tools/package_windows.py dist/RasterReady development-packages --version $appVersion --makensis ../nsis-tool/nsis-3.13/makensis.exe --development
       - name: Linux development package trial
         if: runner.os == 'Linux'
         run: |
           python tools/linux_package_tools.py ../appimage-tools
           app_version=$(python -c "from rasterready import __version__; print(__version__)")
-          python tools/package_linux.py dist/RasterReady ../linux-packages --version "$app_version" --development --tool-directory ../appimage-tools
+          python tools/package_linux.py dist/RasterReady development-packages --version "$app_version" --development --tool-directory ../appimage-tools
       - name: Archive Mac development app
         if: runner.os == 'macOS'
-        run: ditto -c -k --sequesterRsrc --keepParent dist/RasterReady.app dist/RasterReady-macos-arm64-development.zip
+        run: |
+          mkdir development-packages
+          ditto -c -k --sequesterRsrc --keepParent dist/RasterReady.app development-packages/RasterReady-macos-arm64-development.zip
       - name: Retain development packages for testing
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: RasterReady-development-${{ runner.os }}-${{ github.sha }}
           path: |
-            dist/RasterReady-macos-arm64-development.zip
-            ../windows-installer/*.exe
-            ../windows-installer/manifest.json
-            ../linux-packages/*.deb
-            ../linux-packages/*.AppImage
-            ../linux-packages/manifest.json
+            development-packages/*.zip
+            development-packages/*.exe
+            development-packages/*.deb
+            development-packages/*.AppImage
+            development-packages/manifest.json
           if-no-files-found: error
           retention-days: 7
       # Development packages require native acceptance before release publication.
