@@ -57,12 +57,19 @@ class Batch(QThread):
                     crop.size,
                     crop.allow_enlargement,
                     crop.flatten,
-                    adjustments=edit,
+                    adjustments=replace(
+                        edit,
+                        center=crop.center,
+                        zoom=1
+                        if crop.size is not None and crop.size.height is not None
+                        else crop.zoom,
+                    ),
                     output_format=request.format,
                     quality=request.quality,
                     output_name=request.name,
                     sequence=index + 1,
                     crop_center=crop.center,
+                    crop_zoom=crop.zoom,
                 )
                 self.completed.emit(index, replace(result, notes=crop.preset.review(result)), "")
             except (PreparationError, OSError) as exc:
@@ -166,7 +173,7 @@ class DropArea(QFrame):
 class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
-        self.setWindowTitle("RasterReady")
+        self.setWindowTitle(f"RasterReady {__version__}")
         self.resize(1200, 800)
         self.setMinimumSize(800, 570)
         self.settings = (

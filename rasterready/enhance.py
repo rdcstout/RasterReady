@@ -14,17 +14,25 @@ class Adjustments:
     rotation: int = 0
     crop: tuple[int, int] | None = None
     scale: int = 1
+    center: tuple[float, float] = (0.5, 0.5)
+    zoom: float = 1
 
     def apply(self, image, *, preview=False, max_pixels=50_000_000):
         if self.rotation:
             image = image.rotate(-90 * self.rotation, expand=True)
-        if self.crop:
+        if self.crop or self.zoom > 1:
             width, height = image.size
-            x, y = self.crop
+            x, y = self.crop or image.size
             crop_width = max(1, min(width, height * x // y))
             crop_height = max(1, min(height, width * y // x))
-            left, top = (width - crop_width) // 2, (height - crop_height) // 2
+            output_size = (crop_width, crop_height)
+            crop_width = max(1, round(crop_width / self.zoom))
+            crop_height = max(1, round(crop_height / self.zoom))
+            left = round((width - crop_width) * self.center[0])
+            top = round((height - crop_height) * self.center[1])
             image = image.crop((left, top, left + crop_width, top + crop_height))
+            if self.zoom > 1:
+                image = image.resize(output_size, Image.Resampling.LANCZOS)
 
         if self.noise or self.sharpness or self.exposure or self.warmth:
             alpha = image.getchannel("A") if image.mode == "RGBA" else None

@@ -37,13 +37,12 @@ def test_preview_and_selected_preset_export(tmp_path):
     assert dialog.adjustments() == Adjustments()
     dialog.photos.setCurrentRow(1)
     assert dialog.adjustments().rotation == 1
-    crop = dialog.crop_controls
-    assert crop.presets[1:] == PRESETS
-    crop.preset.setCurrentIndex(
-        1 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
+    assert dialog.crop.count() == 4 + len(PRESETS)
+    dialog.crop.setCurrentIndex(
+        4 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
     )
-    crop.update_settings()
-    assert not crop.isWindow()
+    assert not hasattr(dialog, "crop_controls")
+    assert not hasattr(dialog, "center_crop")
     options = ExportOptions(None, dialog.paths, 1, dialog.edits, dialog.crops)
     options.filename.setText("Preview")
     options.format.setCurrentText("JPG")
@@ -150,12 +149,10 @@ def test_square_preset_fills_edges_and_enlarges_small_photos(tmp_path, dimension
     Image.new("RGB", dimensions, (20, 100, 60)).save(source)
     editor = Workbench(None, DropArea())
     editor.set_paths([source])
-    controls = editor.crop_controls
-    controls.preset.setCurrentIndex(
-        1 + next(i for i, preset in enumerate(PRESETS) if preset.key == "product2000")
+    editor.crop.setCurrentIndex(
+        4 + next(i for i, preset in enumerate(PRESETS) if preset.key == "product2000")
     )
-    assert controls.enlarge.isChecked()
-    assert not controls.enlarge.isEnabled()
+    assert editor.crops[0].allow_enlargement
     crop = editor.crops[0]
     assert crop.size.mode == "crop"
     request = ExportRequest((source,), "Square", "PNG", 95, (Adjustments(),), (crop,))
@@ -188,8 +185,8 @@ def test_drag_reframes_preview_and_export_and_keeps_each_photo_position(tmp_path
     editor.resize(1100, 800)
     editor.show()
     editor.set_paths([source, other])
-    editor.crop_controls.preset.setCurrentIndex(
-        1 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
+    editor.crop.setCurrentIndex(
+        4 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
     )
     deadline = time.monotonic() + 5
     while (
@@ -254,4 +251,42 @@ def test_drag_reframes_preview_and_export_and_keeps_each_photo_position(tmp_path
     assert editor.crops[0].center == expected_center
     editor.recenter_crop()
     assert editor.crops[0].center == (0.5, 0.5)
+    editor.close()
+
+
+def test_crop_zoom_changes_export_and_restores_on_photo_selection(tmp_path):
+    from rasterready.workbench import ExportOptions
+
+    app = QApplication.instance() or QApplication([])
+    source = tmp_path / "target.png"
+    image = Image.new("RGB", (100, 100), "red")
+    image.paste("blue", (25, 25, 75, 75))
+    image.save(source)
+    other = tmp_path / "other.png"
+    image.save(other)
+    editor = Workbench(None, DropArea())
+    editor.set_paths([source, other])
+    editor.crop.setCurrentIndex(
+        4 + next(i for i, p in enumerate(PRESETS) if p.key == "product2000")
+    )
+    editor.zoom.setValue(200)
+    deadline = time.monotonic() + 5
+    while (editor.running or editor.timer.isActive()) and time.monotonic() < deadline:
+        app.processEvents()
+        QTest.qWait(10)
+    assert editor.crops[0].zoom == 2
+    assert editor.preview.zoom == 1
+    assert editor.preview.after.pixelColor(100, 100).blue() > 240
+    editor.photos.setCurrentRow(1)
+    assert editor.zoom.value() == 100
+    editor.photos.setCurrentRow(0)
+    assert editor.zoom.value() == 200
+    options = ExportOptions(None, editor.paths, 0, editor.edits, editor.crops, selected_only=True)
+    options.filename.setText("Zoomed")
+    options.accept()
+    Batch(options.request, tmp_path).run()
+    with Image.open(tmp_path / "Zoomed.png") as output:
+        assert output.size == (2000, 2000)
+        assert output.getpixel((1000, 1000)) == (0, 0, 255)
+        assert output.getpixel((100, 100)) == (0, 0, 255)
     editor.close()

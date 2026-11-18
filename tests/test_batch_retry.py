@@ -28,19 +28,19 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
     window.accept_files([source])
     dialog = ui.ExportOptions(window, window.paths, 0, window.editor.edits, window.editor.crops)
     dialog.filename.setText("invalid/name" if problem == "project" else "Website")
-    crop_dialog = window.editor.crop_controls
+    editor = window.editor
     if problem == "size":
-        crop_dialog.preset.setCurrentIndex(
-            1 + next(i for i, p in enumerate(PRESETS) if p.key == "custom")
-        )
-        crop_dialog.mode.setCurrentIndex(1)
+        editor.crop.setCurrentIndex(4 + next(i for i, p in enumerate(PRESETS) if p.key == "custom"))
+        editor.crop_width.setValue(20000)
+        editor.crop_height.setValue(20000)
+        dialog.crops = tuple(editor.crops)
     try:
-        invalid = dialog if problem == "project" else crop_dialog
+        dialog.accept()
         if problem == "project":
-            invalid.accept()
+            assert dialog.message.text()
         else:
-            invalid.update_settings()
-        assert invalid.message.text()
+            window.start(dialog.request)
+            assert "50 megapixel" in window.status.text()
         assert window.worker is None
         assert not list(downloads.rglob("*.png"))
         assert not window.export.isHidden()
@@ -48,9 +48,9 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
         if problem == "project":
             dialog.filename.setText("Website")
         else:
-            crop_dialog.mode.setCurrentIndex(0)
-            crop_dialog.update_settings()
-            dialog.crops = tuple(window.editor.crops)
+            editor.crop_width.setValue(8)
+            editor.crop_height.setValue(4)
+            dialog.crops = tuple(editor.crops)
         dialog.accept()
         window.start(dialog.request)
         deadline = time.monotonic() + 5

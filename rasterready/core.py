@@ -119,7 +119,9 @@ def project_folder(downloads: Path, name: str) -> Path:
     return output
 
 
-def _resize(image: Image.Image, size: Size, enlarge: bool, center=(0.5, 0.5)) -> Image.Image:
+def _resize(
+    image: Image.Image, size: Size, enlarge: bool, center=(0.5, 0.5), zoom=1
+) -> Image.Image:
     if size.height is None:
         width = size.width if enlarge else min(image.width, size.width)
         height = max(1, round(image.height * width / image.width))
@@ -132,7 +134,13 @@ def _resize(image: Image.Image, size: Size, enlarge: bool, center=(0.5, 0.5)) ->
             raise PreparationError(
                 "This image is too small for that crop. Enable enlargement or choose a smaller size."
             )
-        return ImageOps.fit(image, bounds, Image.Resampling.LANCZOS, centering=center)
+        ratio = max(size.width / image.width, size.height / image.height)
+        width, height = size.width / ratio / zoom, size.height / ratio / zoom
+        left = (image.width - width) * center[0]
+        top = (image.height - height) * center[1]
+        return image.resize(
+            bounds, Image.Resampling.LANCZOS, box=(left, top, left + width, top + height)
+        )
     ratio = min(size.width / image.width, size.height / image.height)
     if not enlarge:
         ratio = min(1, ratio)
@@ -290,6 +298,7 @@ def prepare(
     output_name: str | None = None,
     sequence: int = 1,
     crop_center: tuple[float, float] = (0.5, 0.5),
+    crop_zoom: float = 1,
 ) -> Result:
     if output_name is not None:
         output_name = validate_output_name(output_name)
@@ -310,7 +319,7 @@ def prepare(
         if adjustments is not None:
             image = adjustments.apply(image, max_pixels=MAX_PIXELS)
         if size is not None:
-            image = _resize(image, size, enlarge, crop_center)
+            image = _resize(image, size, enlarge, crop_center, crop_zoom)
         elif image.width > 20000 or image.height > 20000 or image.width * image.height > MAX_PIXELS:
             raise PreparationError(
                 "The image exceeds the output limit. Choose a smaller size preset."
