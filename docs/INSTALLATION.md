@@ -1,6 +1,6 @@
 # Install and use RasterReady
 
-These editing instructions describe the 0.2.0 development source. The latest stable installers are version 0.1.0. Development builds are test candidates with their own platform validation status.
+These instructions describe RasterReady 0.2.0. Mac, Windows and Ubuntu builds passed GitHub checks. Hands-on Windows and Ubuntu installation, upgrade and core-workflow testing for this version was waived by the maintainer; CI does not establish those runtime results.
 
 Download the package for your computer from the [latest release](https://github.com/rdcstout/RasterReady/releases/latest). Downloads are free. The release includes SHA-256 checksums, versioned packages, identical stable-name downloads, and matching source materials.
 
@@ -18,7 +18,7 @@ Use Settings → Apps → Installed apps → RasterReady to uninstall. Finished 
 
 ## Linux
 
-Use an x86-64 desktop with Ubuntu 24.04/glibc 2.39 or newer and compatible graphics libraries. Native desktop acceptance used Ubuntu 26.04.1; Ubuntu 24.04 was the build and ABI baseline, not a separately tested desktop.
+Use an x86-64 desktop with Ubuntu 24.04/glibc 2.39 or newer and compatible graphics libraries. Ubuntu 24.04 is the build and ABI baseline. Hands-on Linux desktop acceptance of 0.2.0 remains unverified.
 
 ### Debian/Ubuntu package
 
@@ -62,7 +62,7 @@ Choose Light, Dark or Follow system from the appearance control. **Help → Chec
 
 Inputs include JPEG, PNG, HEIC/HEIF, AVIF, WebP, TIFF, BMP, GIF and Sony ARW/SRF/SR2. Animated files use their first frame. Unsigned 16-bit grayscale PNG/TIFF inputs are mapped to web tones. SVG and 32-bit images requiring tone mapping are unsupported.
 
-Sony RAW inputs are developed to image data rather than exported only from an embedded preview. Representative A7 III, A7 IV and A7R IV files were tested; camera and RAW-mode support depends on LibRaw. Native Windows and Linux package checks used an A7 III file.
+Sony RAW inputs are developed to image data rather than exported only from an embedded preview. Representative A7 III, A7 IV and A7R IV files were tested; camera and RAW-mode support depends on LibRaw. Previous 0.1.0 Windows and Linux package checks used an A7 III file; these checks were not repeated for 0.2.0.
 
 Orientation is applied and images are converted to sRGB before embedded metadata is removed. PNG and TIFF preserve transparency except where a preset requires white output. JPG flattens transparency to white. Crop includes generic web widths, marketplace sizes and custom dimensions. Boxed presets fill their frames, and width-only presets preserve proportions. Marketplace sizes are preparation suggestions and require checking the destination uploader.
 

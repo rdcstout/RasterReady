@@ -4,7 +4,7 @@
 
 Edit photos locally and prepare images for websites and sales listings. Compare before and after, adjust denoise, sharpening, exposure and warmth, then choose a preset in **Crop**. Zoom and drag to frame the image, and export JPG, PNG or TIFF copies. Embedded metadata is removed and originals are preserved.
 
-The source on main is the 0.2.0 development version. The latest packaged release is 0.1.0. Development installers are available in the [successful GitHub Actions runs](https://github.com/rdcstout/RasterReady/actions/workflows/checks.yml) for testing.
+The current release is **0.2.0**, with the new photo editor and crop/export workflow. See the [installation guide](docs/INSTALLATION.md) for platform requirements and testing status.
 
 ## Download
 

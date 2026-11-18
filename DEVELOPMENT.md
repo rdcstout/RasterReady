@@ -2,7 +2,7 @@
 
 ## Current editor
 
-The 0.2.0 development source starts directly in the Photo Workbench layout. The app module owns the window, export worker, results and updater. The workbench module owns the photo queue, preview, Crop dropdown and export settings. The enhance module implements local adjustments. The core module owns decoding, color/orientation normalization, framing and exclusive output creation.
+RasterReady 0.2.0 starts directly in the Photo Workbench layout. The app module owns the window, export worker, results and updater. The workbench module owns the photo queue, preview, Crop dropdown and export settings. The enhance module implements local adjustments. The core module owns decoding, color/orientation normalization, framing and exclusive output creation.
 
 The single Crop dropdown contains aspect ratios and the shared sizing presets. Bounded presets fill the frame. Per-photo zoom and position are used by both preview and export. Export writes JPG, PNG or TIFF into Downloads/<file name>, with additional images numbered 2, 3 and onward.
 
@@ -10,6 +10,14 @@ GitHub Actions tests and builds this source on macOS, Windows and Ubuntu. Succes
 
 
 Python 3.12 and the pinned dependencies in `pyproject.toml` / `requirements-dev.txt` are required. Run commands from the repository root. On Linux, Qt also needs a graphical desktop and the distribution's Qt/XCB runtime libraries (commonly `libegl1`, `libxkbcommon-x11-0` and `libxcb-cursor0` on Debian/Ubuntu). Headless tests use Qt's offscreen platform.
+
+## 0.2.0 delivery record
+
+Release packages use application revision `e94f48a71a20225fc9cdac968e068505dcd56794`. [CI run 44372966016](https://github.com/rdcstout/RasterReady/actions/runs/44372966016) passed on Mac, Windows and Ubuntu, including tests, Ruff, dependency audit and packaging. Mac and Windows each passed 148 tests with 2 skipped; Ubuntu passed 149 with 1 skipped.
+
+The Mac app and DMG were Developer ID signed, notarized and stapled. A PNG export was checked from the signed app; the final DMG was mounted, its app installed into Applications, and the installed app's complete contents, signature, Gatekeeper assessment and launch verified. The existing dark appearance persisted. Native Crop menu automation did not activate the menu, so that manual interaction was not reverified in this pass; component tests retain the preset/framing evidence.
+
+The maintainer accepted passing CI and directed full publication in place of hands-on Windows and Linux installer/runtime testing for this release. Installation, upgrade, uninstall, persistence and core workflow through those exact packages remain unverified; possible installer/runtime regressions remain. This exception covers 0.2.0 only. Renamed Windows/Linux release assets preserve the CI-produced bytes. Dependency pins are unchanged from 0.1.0; the updated source companion retains matching upstream sources and includes the new application revision. Documentation changes after the application revision do not alter those packages.
 
 ## Set up and run
 
