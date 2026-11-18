@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication
 
 from rasterready import app as ui
 from rasterready.presets import PRESETS
+from rasterready.workbench import CropOptions
 
 
 @pytest.mark.parametrize("problem", ["project", "size"])
@@ -26,33 +27,29 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
     original = source.read_bytes()
     window = ui.Window(settings=settings)
     window.accept_files([source])
-    dialog = ui.ExportOptions(
-        window,
-        "invalid/name" if problem == "project" else "Website",
-        window.paths,
-        0,
-        window.editor.edits,
-        -1,
-        False,
-        ui.Size(1920),
-    )
+    dialog = ui.ExportOptions(window, window.paths, 0, window.editor.edits, window.editor.crops)
+    dialog.filename.setText("invalid/name" if problem == "project" else "Website")
+    crop_dialog = CropOptions(window, window.editor.crops[0])
     if problem == "size":
-        dialog.preset.setCurrentIndex(
+        crop_dialog.preset.setCurrentIndex(
             1 + next(i for i, p in enumerate(PRESETS) if p.key == "custom")
         )
-        dialog.mode.setCurrentIndex(1)  # Crop with proportional height is invalid.
+        crop_dialog.mode.setCurrentIndex(1)
     try:
-        dialog.accept()
-        assert dialog.request is None
-        assert dialog.message.text()
+        invalid = dialog if problem == "project" else crop_dialog
+        invalid.accept()
+        assert invalid.message.text()
         assert window.worker is None
         assert not list(downloads.rglob("*.png"))
         assert not window.export.isHidden()
         assert window.export.isEnabled()
         if problem == "project":
-            dialog.project.setText("Website")
+            dialog.filename.setText("Website")
         else:
-            dialog.mode.setCurrentIndex(0)
+            crop_dialog.mode.setCurrentIndex(0)
+            crop_dialog.accept()
+            window.editor.crops[0] = crop_dialog.result_settings
+            dialog.crops = tuple(window.editor.crops)
         dialog.accept()
         window.start(dialog.request)
         deadline = time.monotonic() + 5
@@ -62,7 +59,7 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
         assert window.worker is None
         assert window.successes == 1
         assert window.table.item(0, 2).text() == "Ready"
-        assert (downloads / "Website/photo.png").is_file()
+        assert (downloads / "Website/Website.png").is_file()
         assert source.read_bytes() == original
     finally:
         if window.worker is not None:

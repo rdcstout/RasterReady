@@ -91,6 +91,20 @@ def validate_project(name: str) -> str:
     return name
 
 
+def validate_output_name(name: str) -> str:
+    try:
+        return validate_project(name)
+    except PreparationError as exc:
+        raise PreparationError(str(exc).replace("project name", "file name")) from exc
+
+
+def safe_output_name(name: str) -> str:
+    name = _output_stem(name)[:100]
+    while _name_bytes(name) > 200:
+        name = name[:-1]
+    return name.rstrip(" .") or "image"
+
+
 def project_folder(downloads: Path, name: str) -> Path:
     name = validate_project(name)
     downloads = downloads.expanduser().resolve(strict=True)
@@ -273,7 +287,13 @@ def prepare(
     adjustments=None,
     output_format: str = "PNG",
     quality: int = 95,
+    output_name: str | None = None,
+    sequence: int = 1,
 ) -> Result:
+    if output_name is not None:
+        output_name = validate_output_name(output_name)
+        if sequence < 1:
+            raise PreparationError("The output sequence must start at 1.")
     if size is not None:
         size.validate()
     formats = {"PNG": "png", "JPEG": "jpg", "TIFF": "tiff"}
@@ -300,9 +320,12 @@ def prepare(
             image = background.convert("RGB")
         # A new pixel buffer discards source EXIF, ICC, comments and PNG text.
         clean = Image.frombytes(image.mode, image.size, image.tobytes())
-        stem = _output_stem(source.stem)
-        for number in range(10000):
-            suffix = f" ({number + 1})" if number else ""
+        stem = output_name if output_name is not None else _output_stem(source.stem)
+        for offset in range(10000):
+            number = offset + sequence
+            suffix = f" {number}" if number > 1 else ""
+            if output_name is None:
+                suffix = f" ({offset + 1})" if offset else ""
             output = destination / f"{stem}{suffix}.{extension}"
             try:
                 handle = output.open("xb")

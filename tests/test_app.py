@@ -17,15 +17,13 @@ from rasterready import app as ui
 def export_queue(window, name, *, selected_only=False):
     dialog = ui.ExportOptions(
         window,
-        name,
         window.paths,
         window.editor.photos.currentRow(),
         window.editor.edits,
-        -1,
-        False,
-        ui.Size(1920),
+        window.editor.crops,
         selected_only=selected_only,
     )
+    dialog.filename.setText(name)
     dialog.accept()
     assert dialog.request is not None
     window.start(dialog.request)
@@ -60,7 +58,7 @@ def test_batch_continues_after_failure_and_uses_project_folder(tmp_path, monkeyp
     assert window.table.item(0, 2).text() == "Failed"
     assert "Unsupported or damaged" in window.table.item(0, 2).toolTip()
     assert window.table.item(1, 2).text() == "Ready"
-    assert (downloads / "Test project" / "good.png").is_file()
+    assert (downloads / "Test project" / "Test project 2.png").is_file()
     assert not (downloads / "Finished").exists()
     assert window.drop.isEnabled()
     window.close()
@@ -70,11 +68,10 @@ def test_theme_choice_persists_and_does_not_lose_project(tmp_path):
     _application = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
     window = ui.Window(settings=settings)
-    window.project = "My project"
+
     for index, name in ((1, "light"), (2, "dark")):
         window.appearance.setCurrentIndex(index)
         assert window.current_theme == name
-        assert window.project == "My project"
         assert window.settings.value("appearance") == name
         assert not window.drop.art.pixmap().isNull()
     window.close()
@@ -132,7 +129,7 @@ def test_cancellation_finishes_current_file_and_releases_batch(tmp_path, monkeyp
     assert window.done == 2 and window.successes == 1
     assert window.table.item(1, 2).text() == "Cancelled"
     assert list((tmp_path / "Downloads" / "Cancel test").glob("*.png")) == [
-        tmp_path / "Downloads" / "Cancel test" / "photo-0.png"
+        tmp_path / "Downloads" / "Cancel test" / "Cancel test.png"
     ]
     # A second batch remains usable after the first thread has been released.
     window.editor.photos.setCurrentRow(1)

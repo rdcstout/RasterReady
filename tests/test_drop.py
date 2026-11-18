@@ -52,7 +52,7 @@ def test_drop_imports_batch_as_copy_even_when_sender_proposes_move(tmp_path, mon
     assert window.editor.pages.currentIndex() == 1
 
     def accept_with_project(dialog):
-        dialog.project.setText("Dropped batch")
+        dialog.filename.setText("Dropped batch")
         dialog.accept()
         return dialog.result()
 
@@ -65,9 +65,14 @@ def test_drop_imports_batch_as_copy_even_when_sender_proposes_move(tmp_path, mon
     assert window.worker is None
     assert window.paths == paths
     assert window.done == window.successes == 2
-    for path, original in zip(paths, originals):
+    for index, (path, original) in enumerate(zip(paths, originals)):
         assert path.read_bytes() == original
-        with Image.open(tmp_path / "Downloads" / "Dropped batch" / path.name) as output:
+        with Image.open(
+            tmp_path
+            / "Downloads"
+            / "Dropped batch"
+            / (f"Dropped batch {index + 1}.png" if index else "Dropped batch.png")
+        ) as output:
             assert output.size == (16, 8)
             assert not output.info and not output.getexif()
     window.close()

@@ -30,7 +30,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .core import PreparationError, Size, load_pixels, validate_project
+from .core import (
+    PreparationError,
+    Size,
+    _resize,
+    load_pixels,
+    safe_output_name,
+    validate_output_name,
+)
 from .enhance import Adjustments
 from .presets import PRESETS, Preset
 
@@ -38,21 +45,33 @@ IMAGE_FILTER = (
     "Images and Sony RAW (*.jpg *.jpeg *.png *.heic *.heif *.avif *.webp *.tif *.tiff "
     "*.bmp *.gif *.ico *.ppm *.pgm *.tga *.arw *.ARW *.srf *.SRF *.sr2 *.SR2);;All files (*)"
 )
-AS_ENHANCED = Preset("enhanced", "As enhanced", None)
+AS_ENHANCED = Preset("enhanced", "Original sizing", None)
 CROPS = (None, (1, 1), (4, 3), (16, 9))
+
+
+@dataclass(frozen=True)
+class CropSettings:
+    preset: Preset = AS_ENHANCED
+    custom: Size = Size(1920)
+    enlarge: bool = False
+
+    @property
+    def size(self):
+        return self.custom if self.preset.key == "custom" else self.preset.size
+
+    @property
+    def flatten(self):
+        return self.preset.flatten or (self.size is not None and self.size.mode == "pad")
 
 
 @dataclass(frozen=True)
 class ExportRequest:
     paths: tuple[Path, ...]
-    project: str
-    preset: Preset
-    size: Size | None
-    enlarge: bool
-    flatten: bool
+    name: str
     format: str
     quality: int
     adjustments: tuple[Adjustments, ...]
+    crops: tuple[CropSettings, ...]
 
 
 class PreviewSignals(QObject):
@@ -60,23 +79,37 @@ class PreviewSignals(QObject):
 
 
 class PreviewTask(QRunnable):
-    def __init__(self, generation, path, settings, cached, signals):
+    def __init__(self, generation, path, settings, crop, cached, signals):
         super().__init__()
         self.generation = generation
         self.path = path
         self.settings = settings
+        self.crop = crop
         self.cached = cached
         self.signals = signals
 
     def run(self):
         try:
-            source = self.cached
-            if source is None:
+            if self.cached is None:
                 source, _ = load_pixels(self.path)
+                original = source.size
                 source.thumbnail((1100, 800), Image.Resampling.LANCZOS)
+            else:
+                source, original = self.cached
             enhanced = self.settings.apply(source, preview=True)
+            issue = ""
+            if self.crop.size is not None:
+                try:
+                    enhanced = self.resize_preview(source, original, enhanced)
+                except PreparationError as exc:
+                    issue = str(exc)
+            if self.crop.flatten:
+                flattened = Image.new("RGBA", enhanced.size, "white")
+                flattened.alpha_composite(enhanced.convert("RGBA"))
+                enhanced = flattened
+
             self.signals.finished.emit(
-                self.generation, source, _qimage(source), _qimage(enhanced), ""
+                self.generation, (source, original), _qimage(source), _qimage(enhanced), issue
             )
         except (PreparationError, OSError, ValueError) as exc:
             self.signals.finished.emit(self.generation, None, None, None, str(exc))
@@ -84,6 +117,26 @@ class PreviewTask(QRunnable):
             self.signals.finished.emit(
                 self.generation, None, None, None, "Could not render the preview."
             )
+
+    def resize_preview(self, thumbnail, original, image):
+        size = self.crop.size
+        factor = thumbnail.width / original[0] / self.settings.scale
+        render_scale = min(factor, 1100 / size.width, 800 / (size.height or 1))
+        if render_scale < factor:
+            image = image.resize(
+                tuple(max(1, round(n * render_scale / factor)) for n in image.size),
+                Image.Resampling.LANCZOS,
+            )
+        bounds = Size(
+            max(1, round(size.width * render_scale)),
+            max(1, round(size.height * render_scale)) if size.height is not None else None,
+            size.mode,
+        )
+        # Width-only and boxed fits never change framing. The size is applied
+        # to the full-resolution pixels during export.
+        if bounds.mode == "fit":
+            return image
+        return _resize(image, bounds, self.crop.enlarge)
 
 
 def _qimage(image):
@@ -153,32 +206,13 @@ def _strength(minimum, maximum, value=0):
     return spin
 
 
-class ExportOptions(QDialog):
-    def __init__(
-        self,
-        parent,
-        project,
-        paths,
-        current,
-        adjustments,
-        preset_index,
-        enlarge,
-        custom,
-        *,
-        output_format="PNG",
-        quality=95,
-        flatten=None,
-        selected_only=False,
-    ):
+class CropOptions(QDialog):
+    def __init__(self, parent, crop):
         super().__init__(parent)
-        self.setWindowTitle("Export settings")
+        self.setWindowTitle("Crop presets")
         self.setMinimumWidth(490)
-        self.request = None
-        self.paths, self.current, self.adjustments = tuple(paths), current, tuple(adjustments)
+        self.result_settings = None
         form = QFormLayout(self)
-        self.project = QLineEdit(project)
-        self.project.setMaxLength(100)
-        form.addRow("Project name", self.project)
         self.preset = QComboBox()
         self.presets = (AS_ENHANCED, *PRESETS)
         for item in self.presets:
@@ -195,64 +229,26 @@ class ExportOptions(QDialog):
         self.custom = QWidget()
         sizing = QFormLayout(self.custom)
         sizing.setContentsMargins(0, 0, 0, 0)
-        self.width = _strength(1, 20000, custom.width)
-        self.height = _strength(0, 20000, custom.height or 0)
+        self.width = _strength(1, 20000, crop.custom.width)
+        self.height = _strength(0, 20000, crop.custom.height or 0)
         self.height.setSpecialValueText("Proportional")
         self.mode = QComboBox()
         self.mode.addItems(["Fit", "Center crop", "White padding"])
-        self.mode.setCurrentIndex(["fit", "crop", "pad"].index(custom.mode))
+        self.mode.setCurrentIndex(["fit", "crop", "pad"].index(crop.custom.mode))
         sizing.addRow("Width", self.width)
         sizing.addRow("Height", self.height)
         sizing.addRow("Sizing", self.mode)
         form.addRow(self.custom)
         self.enlarge = QCheckBox("Allow enlargement")
-        self.enlarge.setChecked(enlarge)
+        self.enlarge.setChecked(crop.enlarge)
         form.addRow(self.enlarge)
-        self.flatten = QCheckBox("Flatten transparency to white")
-        form.addRow(self.flatten)
-        self.format = QComboBox()
-        self.format.addItems(["PNG", "JPEG", "TIFF"])
-        form.addRow("Format", self.format)
-        self.format.setCurrentText(output_format)
-        self.quality = _strength(1, 100, quality)
-        self.quality_label = QLabel("JPEG quality")
-        self.quality_label.setBuddy(self.quality)
-        form.addRow(self.quality_label, self.quality)
-        self.format.currentTextChanged.connect(self.update_quality)
-        self.format.currentTextChanged.connect(self.update_padding)
-        self.update_quality(self.format.currentText())
-        self.scope = QComboBox()
-        self.scope.addItem(f"All {len(paths)} images" if len(paths) != 1 else "Current image")
-        if len(paths) > 1:
-            self.scope.addItem("Selected image")
-        self.scope.setEnabled(len(paths) > 1)
-        if len(paths) > 1 and selected_only:
-            self.scope.setCurrentIndex(1)
-        form.addRow("Export", self.scope)
-        form.addRow(QLabel("Saves to Downloads / project name. Originals are preserved."))
         self.message = QLabel()
-        self.message.setTextFormat(Qt.TextFormat.PlainText)
         self.message.setWordWrap(True)
         form.addRow(self.message)
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        export = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        export.setText("Export")
-        export.setProperty("primary", True)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
+        form.addRow(dialog_buttons(self, "Apply"))
         self.preset.currentIndexChanged.connect(self.update_preset)
-        self.mode.currentIndexChanged.connect(self.update_padding)
-        self.preset.setCurrentIndex(preset_index + 1)
+        self.preset.setCurrentIndex(self.presets.index(crop.preset))
         self.update_preset(self.preset.currentIndex())
-        if flatten is not None and self.flatten.isEnabled():
-            self.flatten.setChecked(flatten)
-
-    def update_quality(self, text):
-        self.quality.setVisible(text == "JPEG")
-        self.quality_label.setVisible(text == "JPEG")
 
     def update_preset(self, index):
         preset = self.presets[index]
@@ -264,50 +260,135 @@ class ExportOptions(QDialog):
         self.guide.setVisible(bool(preset.source))
         self.custom.setVisible(preset.key == "custom")
         self.enlarge.setEnabled(index != 0)
-        self.update_padding()
 
     def open_guidance(self):
         source = self.presets[self.preset.currentIndex()].source
         if source:
             QDesktopServices.openUrl(QUrl(source))
 
-    def update_padding(self):
-        preset = self.presets[self.preset.currentIndex()]
-        padding = (
-            self.format.currentText() == "JPEG"
-            or (preset.size is not None and preset.size.mode == "pad")
-            or (preset.key == "custom" and self.mode.currentIndex() == 2)
-        )
-        self.flatten.setEnabled(not padding)
-        self.flatten.setChecked(padding or preset.flatten)
-
     def accept(self):
         preset = self.presets[self.preset.currentIndex()]
-        size = preset.size
-        if preset.key == "custom":
-            size = Size(
-                self.width.value(),
-                self.height.value() or None,
-                ["fit", "crop", "pad"][self.mode.currentIndex()],
-            )
+        custom = Size(
+            self.width.value(),
+            self.height.value() or None,
+            ["fit", "crop", "pad"][self.mode.currentIndex()],
+        )
+        crop = CropSettings(preset, custom, self.enlarge.isChecked())
         try:
-            project = validate_project(self.project.text())
-            if size is not None:
-                size.validate()
+            if crop.size is not None:
+                crop.size.validate()
+        except PreparationError as exc:
+            self.message.setText(str(exc))
+            return
+        self.result_settings = crop
+        super().accept()
+
+
+def dialog_buttons(dialog, label):
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+    )
+    ok = buttons.button(QDialogButtonBox.StandardButton.Ok)
+    ok.setText(label)
+    ok.setProperty("primary", True)
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+    return buttons
+
+
+class ExportOptions(QDialog):
+    def __init__(
+        self,
+        parent,
+        paths,
+        current,
+        adjustments,
+        crops,
+        *,
+        output_format="PNG",
+        quality=95,
+        selected_only=False,
+    ):
+        super().__init__(parent)
+        self.setWindowTitle("Export images")
+        self.setMinimumWidth(450)
+        self.request = None
+        self.paths, self.current = tuple(paths), current
+        self.adjustments, self.crops = tuple(adjustments), tuple(crops)
+        self.default_name = safe_output_name(paths[current].stem)
+        form = QFormLayout(self)
+        self.filename = QLineEdit(self.default_name)
+        self.filename.setMaxLength(100)
+        self.filename.selectAll()
+        form.addRow("File name", self.filename)
+        self.format = QComboBox()
+        for label, value in (("JPG", "JPEG"), ("PNG", "PNG"), ("TIFF", "TIFF")):
+            self.format.addItem(label, value)
+        self.format.setCurrentIndex(self.format.findData(output_format))
+        form.addRow("Format", self.format)
+        self.quality = _strength(1, 100, quality)
+        self.quality_label = QLabel("JPG quality")
+        self.quality_label.setBuddy(self.quality)
+        form.addRow(self.quality_label, self.quality)
+        self.scope = QComboBox()
+        self.scope.addItem(f"All {len(paths)} images" if len(paths) != 1 else "Current image")
+        if len(paths) > 1:
+            self.scope.addItem("Selected image")
+        self.scope.setEnabled(len(paths) > 1)
+        if len(paths) > 1 and selected_only:
+            self.scope.setCurrentIndex(1)
+        if len(paths) > 1:
+            form.addRow("Images", self.scope)
+        self.destination = QLabel()
+        self.destination.setTextFormat(Qt.TextFormat.PlainText)
+        self.destination.setWordWrap(True)
+        form.addRow(self.destination)
+        self.message = QLabel()
+        self.message.setTextFormat(Qt.TextFormat.PlainText)
+        self.message.setWordWrap(True)
+        form.addRow(self.message)
+        form.addRow(dialog_buttons(self, "Export"))
+        self.filename.textChanged.connect(self.update_summary)
+        self.format.currentIndexChanged.connect(self.update_summary)
+        self.scope.currentIndexChanged.connect(self.update_summary)
+        self.update_summary()
+
+    def output_name(self):
+        name = self.filename.text().strip()
+        if Path(name).suffix.lower() in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}:
+            name = Path(name).stem
+        return validate_output_name(name)
+
+    def update_summary(self, *_):
+        jpeg = self.format.currentData() == "JPEG"
+        self.quality.setVisible(jpeg)
+        self.quality_label.setVisible(jpeg)
+        self.message.clear()
+        try:
+            name = self.output_name()
+        except PreparationError:
+            self.destination.setText("Saves to a named folder in Downloads.")
+            return
+        ext = self.format.currentText().lower()
+        sample = f"{name}.{ext}"
+        if len(self.paths) > 1 and self.scope.currentIndex() == 0:
+            sample += f", {name} 2.{ext}, …"
+        self.destination.setText(f"Downloads / {name}\n{sample}")
+
+    def accept(self):
+        try:
+            name = self.output_name()
         except PreparationError as exc:
             self.message.setText(str(exc))
             return
         indices = range(len(self.paths)) if self.scope.currentIndex() == 0 else (self.current,)
         self.request = ExportRequest(
             tuple(self.paths[i] for i in indices),
-            project,
-            preset,
-            size,
-            self.enlarge.isChecked(),
-            self.flatten.isChecked(),
-            self.format.currentText(),
+            name,
+            self.format.currentData(),
             self.quality.value(),
             tuple(self.adjustments[i] for i in indices),
+            tuple(self.crops[i] for i in indices),
         )
         super().accept()
 
@@ -317,6 +398,7 @@ class Workbench(QWidget):
         super().__init__(parent)
         self.paths = []
         self.edits = []
+        self.crops = []
         self.generation = 0
         self.active_path = None
         self.cached = None
@@ -425,7 +507,7 @@ class Workbench(QWidget):
             ("Upscale", self.scale),
             ("Exposure", self.exposure),
             ("Warmth", self.warmth),
-            ("Crop", self.crop),
+            ("Aspect ratio", self.crop),
             ("Rotate clockwise", self.rotation),
         ):
             control.setAccessibleName(label)
@@ -456,6 +538,13 @@ class Workbench(QWidget):
                 else control.valueChanged
             )
             signal.connect(self.save_edit)
+        self.crop_presets = QPushButton("Crop presets…")
+        self.crop_presets.clicked.connect(self.open_crop)
+        panel.addRow(self.crop_presets)
+        self.crop_summary = QLabel()
+        self.crop_summary.setObjectName("guidance")
+        self.crop_summary.setWordWrap(True)
+        panel.addRow(self.crop_summary)
         buttons = QHBoxLayout()
         reset = QPushButton("Reset")
         reset.clicked.connect(self.reset)
@@ -492,8 +581,10 @@ class Workbench(QWidget):
         previous = self.photos.currentRow()
         selected = self.paths[previous] if previous >= 0 else None
         edits = dict(zip(self.paths, self.edits, strict=True))
+        crops = dict(zip(self.paths, self.crops, strict=True))
         self.paths = list(dict.fromkeys(paths))
         self.edits = [edits.get(path, Adjustments()) for path in self.paths]
+        self.crops = [crops.get(path, CropSettings()) for path in self.paths]
         blocked = self.photos.blockSignals(True)
         icons = {path: self.photos.item(i).icon() for i, path in enumerate(edits)}
         self.photos.clear()
@@ -516,6 +607,7 @@ class Workbench(QWidget):
     def select_photo(self, index):
         if index >= 0:
             self.set_adjustments(self.edits[index])
+            self.update_crop_summary(index)
             path = self.paths[index]
             self.name.setText(path.name)
             self.name.setToolTip(f"<qt>{escape(str(path))}</qt>")
@@ -544,13 +636,38 @@ class Workbench(QWidget):
             self.edits[index] = self.adjustments()
             self.queue_preview()
 
+    def open_crop(self):
+        index = self.photos.currentRow()
+        if index < 0:
+            return
+        dialog = CropOptions(self, self.crops[index])
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.crops[index] = dialog.result_settings
+            self.update_crop_summary(index)
+            self.queue_preview()
+        dialog.deleteLater()
+
+    def update_crop_summary(self, index):
+        crop = self.crops[index]
+        if crop.preset.key == "custom":
+            size = crop.size
+            label = f"{size.width} × {size.height}" if size.height else f"{size.width} px wide"
+        else:
+            label = crop.preset.label if crop.size is not None else ""
+        self.crop_summary.setText(label)
+        self.crop_summary.setVisible(bool(label))
+
     def reset(self):
+        index = self.photos.currentRow()
+        self.crops[index] = CropSettings()
+        self.update_crop_summary(index)
         self.set_adjustments(Adjustments())
         self.save_edit()
 
     def apply_all(self):
         edit = self.adjustments()
         self.edits[:] = [edit] * len(self.paths)
+        self.crops[:] = [self.crops[self.photos.currentRow()]] * len(self.paths)
         self.status.setText(f"Applied adjustments to {len(self.paths)} images.")
 
     def auto_adjust(self):
@@ -610,7 +727,12 @@ class Workbench(QWidget):
             return
         self.running = True
         task = PreviewTask(
-            self.generation, self.active_path, self.adjustments(), self.cached, self.signals
+            self.generation,
+            self.active_path,
+            self.adjustments(),
+            self.crops[self.photos.currentRow()],
+            self.cached,
+            self.signals,
         )
         self.pool.start(task)
 

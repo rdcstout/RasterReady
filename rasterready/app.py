@@ -27,9 +27,8 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__, theme
-from .core import PreparationError, Size, prepare, project_folder
+from .core import PreparationError, prepare, project_folder
 from .notices import NoticesDialog
-from .presets import PRESETS
 from .update_ui import UpdateChecker
 from .workbench import IMAGE_FILTER, ExportOptions, ExportRequest, Workbench
 
@@ -45,7 +44,9 @@ class Batch(QThread):
 
     def run(self):
         request = self.request
-        for index, (path, edit) in enumerate(zip(request.paths, request.adjustments, strict=True)):
+        for index, (path, edit, crop) in enumerate(
+            zip(request.paths, request.adjustments, request.crops, strict=True)
+        ):
             if self.cancel.is_set():
                 self.completed.emit(index, None, "Cancelled")
                 continue
@@ -53,14 +54,16 @@ class Batch(QThread):
                 result = prepare(
                     path,
                     self.folder,
-                    request.size,
-                    request.enlarge,
-                    request.flatten,
+                    crop.size,
+                    crop.enlarge,
+                    crop.flatten,
                     adjustments=edit,
                     output_format=request.format,
                     quality=request.quality,
+                    output_name=request.name,
+                    sequence=index + 1,
                 )
-                self.completed.emit(index, replace(result, notes=request.preset.review(result)), "")
+                self.completed.emit(index, replace(result, notes=crop.preset.review(result)), "")
             except (PreparationError, OSError) as exc:
                 self.completed.emit(index, None, str(exc))
             except Exception:
@@ -170,13 +173,8 @@ class Window(QMainWindow):
         )
         self.worker = None
         self.paths = []
-        self.project = ""
-        self.preset_index = -1
-        self.enlarge = False
-        self.custom_size = Size(1920)
         self.export_format = "PNG"
         self.quality = 95
-        self.export_flatten = None
         self.export_scope = False
         self.export_paths = ()
         self.folder = None
@@ -225,10 +223,10 @@ class Window(QMainWindow):
         self.export_action.setEnabled(False)
         self.export_action.triggered.connect(self.open_export)
         view_menu = self.menuBar().addMenu("View")
-        self.choose_preset_action = view_menu.addAction("Choose size preset…")
+        self.choose_preset_action = view_menu.addAction("Crop presets…")
         self.choose_preset_action.setShortcut("Ctrl+Shift+P")
         self.choose_preset_action.setEnabled(False)
-        self.choose_preset_action.triggered.connect(self.open_export)
+        self.choose_preset_action.triggered.connect(self.open_crop)
         results_action = view_menu.addAction("Image results")
         results_action.setShortcut("Ctrl+Shift+R")
         results_action.triggered.connect(self.focus_results)
@@ -314,7 +312,7 @@ class Window(QMainWindow):
         self.stop = QPushButton("Cancel remaining")
         self.stop.hide()
         self.stop.clicked.connect(self.cancel)
-        self.open = QPushButton("Open project folder")
+        self.open = QPushButton("Open export folder")
         self.open.setEnabled(False)
         self.open.setIconSize(QSize(18, 18))
         self.open.clicked.connect(self.open_folder)
@@ -421,21 +419,21 @@ class Window(QMainWindow):
             self.table.setItem(i, 1, QTableWidgetItem("—"))
             self.table.setItem(i, 2, QTableWidgetItem("Waiting"))
 
+    def open_crop(self):
+        if self.worker is None:
+            self.editor.open_crop()
+
     def open_export(self):
         if not self.paths or self.worker is not None:
             return
         dialog = ExportOptions(
             self,
-            self.project,
             self.paths,
             self.editor.photos.currentRow(),
             self.editor.edits,
-            self.preset_index,
-            self.enlarge,
-            self.custom_size,
+            self.editor.crops,
             output_format=self.export_format,
             quality=self.quality,
-            flatten=self.export_flatten,
             selected_only=self.export_scope,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -452,15 +450,9 @@ class Window(QMainWindow):
     def start(self, request: ExportRequest):
         if not request.paths or self.worker is not None:
             return
-        self.project = request.project
-        self.preset_index = PRESETS.index(request.preset) if request.preset in PRESETS else -1
-        self.enlarge = request.enlarge
         self.export_format = request.format
-        self.export_flatten = request.flatten
         self.export_scope = len(request.paths) == 1 and len(self.paths) > 1
         self.quality = request.quality
-        if request.preset.key == "custom" and request.size is not None:
-            self.custom_size = request.size
         try:
             downloads = QStandardPaths.writableLocation(
                 QStandardPaths.StandardLocation.DownloadLocation
@@ -468,9 +460,10 @@ class Window(QMainWindow):
             if not downloads:
                 raise PreparationError("The system Downloads folder could not be located.")
             Path(downloads).mkdir(parents=True, exist_ok=True)
-            if request.size is not None:
-                request.size.validate()
-            folder = project_folder(Path(downloads), request.project)
+            for crop in request.crops:
+                if crop.size is not None:
+                    crop.size.validate()
+            folder = project_folder(Path(downloads), request.name)
         except (PreparationError, OSError) as exc:
             self.status.setText(str(exc))
             return

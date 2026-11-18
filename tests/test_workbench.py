@@ -10,10 +10,10 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 from rasterready.app import Batch, DropArea
-from rasterready.core import Size, prepare
+from rasterready.core import prepare
 from rasterready.enhance import Adjustments
 from rasterready.presets import PRESETS
-from rasterready.workbench import ExportOptions, Workbench
+from rasterready.workbench import CropOptions, ExportOptions, Workbench
 
 
 def test_preview_and_selected_preset_export(tmp_path):
@@ -22,7 +22,6 @@ def test_preview_and_selected_preset_export(tmp_path):
     second = tmp_path / "second.png"
     Image.new("RGBA", (80, 40), (100, 20, 50, 255)).save(first)
     Image.new("RGBA", (80, 40), (100, 20, 50, 0)).save(second)
-    custom = Size(1024)
     dialog = Workbench(None, DropArea())
     dialog.set_paths([first, second])
     dialog.photos.setCurrentRow(1)
@@ -38,23 +37,27 @@ def test_preview_and_selected_preset_export(tmp_path):
     assert dialog.adjustments() == Adjustments()
     dialog.photos.setCurrentRow(1)
     assert dialog.adjustments().rotation == 1
-    options = ExportOptions(None, "Preview", dialog.paths, 1, dialog.edits, -1, False, custom)
-    assert options.presets[1:] == PRESETS
-    options.preset.setCurrentIndex(
+    crop = CropOptions(None, dialog.crops[1])
+    assert crop.presets[1:] == PRESETS
+    crop.preset.setCurrentIndex(
         1 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
     )
-    options.format.setCurrentText("JPEG")
+    crop.accept()
+    dialog.crops[1] = crop.result_settings
+    options = ExportOptions(None, dialog.paths, 1, dialog.edits, dialog.crops)
+    options.filename.setText("Preview")
+    options.format.setCurrentText("JPG")
     options.quality.setValue(90)
     options.scope.setCurrentIndex(1)
     options.accept()
     request = options.request
     assert request.paths == (second,)
     assert request.quality == 90
-    assert request.flatten
+    assert request.crops[0].flatten
     batch = Batch(request, tmp_path)
     batch.run()
     assert not (tmp_path / "first.jpg").exists()
-    with Image.open(tmp_path / "second.jpg") as output:
+    with Image.open(tmp_path / "Preview.jpg") as output:
         assert output.format == "JPEG"
         assert output.size == (2000, 2000)
         assert output.getpixel((1000, 1000)) == (255, 255, 255)
@@ -80,3 +83,59 @@ def test_as_enhanced_exports_keep_alpha_and_existing_file(tmp_path, format, suff
         assert output.format == format
         assert output.mode == "RGBA"
         assert output.getpixel((12, 12))[3] == 128
+
+
+def test_batch_uses_named_sequence_and_skips_existing_files(tmp_path):
+    from rasterready.workbench import CropSettings, ExportRequest
+
+    paths = tuple(tmp_path / f"source-{n}.png" for n in range(4))
+    for path in paths:
+        Image.new("RGB", (20, 12), "red").save(path)
+    output = tmp_path / "exports"
+    output.mkdir()
+    existing = output / "Listing 2.jpg"
+    existing.write_bytes(b"keep me")
+    request = ExportRequest(
+        paths,
+        "Listing",
+        "JPEG",
+        95,
+        (Adjustments(),) * 4,
+        (CropSettings(),) * 4,
+    )
+    batch = Batch(request, output)
+    batch.run()
+    assert existing.read_bytes() == b"keep me"
+    assert {path.name for path in output.iterdir()} == {
+        "Listing.jpg",
+        "Listing 2.jpg",
+        "Listing 3.jpg",
+        "Listing 4.jpg",
+        "Listing 5.jpg",
+    }
+    for name in ("Listing.jpg", "Listing 3.jpg", "Listing 4.jpg", "Listing 5.jpg"):
+        with Image.open(output / name) as image:
+            assert image.format == "JPEG"
+    assert len(list(tmp_path.glob("source-*.png"))) == 4
+
+
+def test_crop_settings_survive_selection_and_apply_to_all(tmp_path):
+    from rasterready.workbench import CropSettings
+
+    _app = QApplication.instance() or QApplication([])
+    paths = [tmp_path / f"source-{n}.png" for n in range(2)]
+    for path in paths:
+        Image.new("RGB", (40, 30), "blue").save(path)
+    editor = Workbench(None, DropArea())
+    editor.set_paths(paths)
+    preset = next(item for item in PRESETS if item.key == "product2000")
+    editor.crops[0] = CropSettings(preset)
+    editor.photos.setCurrentRow(1)
+    assert editor.crops[1] == CropSettings()
+    editor.photos.setCurrentRow(0)
+    editor.apply_all()
+    assert editor.crops[1].preset == preset
+    editor.reset()
+    assert editor.crops[0] == CropSettings()
+    assert editor.crops[1].preset == preset
+    editor.close()
