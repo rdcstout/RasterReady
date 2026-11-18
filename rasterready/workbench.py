@@ -1,6 +1,6 @@
 """Photo Workbench preview and export controls inside RasterReady."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html import escape
 from pathlib import Path
 
@@ -54,6 +54,7 @@ class CropSettings:
     preset: Preset = AS_ENHANCED
     custom: Size = Size(1920)
     enlarge: bool = False
+    center: tuple[float, float] = (0.5, 0.5)
 
     @property
     def size(self):
@@ -141,7 +142,7 @@ class PreviewTask(QRunnable):
         # to the full-resolution pixels during export.
         if bounds.mode == "fit":
             return image
-        return _resize(image, bounds, self.crop.allow_enlargement)
+        return _resize(image, bounds, self.crop.allow_enlargement, self.crop.center)
 
 
 def _qimage(image):
@@ -151,6 +152,9 @@ def _qimage(image):
 
 class SplitPreview(QWidget):
     split_moved = Signal(int)
+    crop_dragged = Signal(float, float)
+    crop_drag_started = Signal()
+    crop_nudged = Signal(float, float)
 
     def __init__(self):
         super().__init__()
@@ -158,20 +162,69 @@ class SplitPreview(QWidget):
         self.position = 50
         self.zoom = 1
         self.interactive = True
+        self.can_reposition = False
+        self.drag_at = None
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMinimumSize(340, 290)
         self.setAccessibleName("Before and after photo preview")
 
+    def image_area(self, image):
+        size = image.size().scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio) * self.zoom
+        return QRect(
+            self.rect().center().x() - size.width() // 2,
+            self.rect().center().y() - size.height() // 2,
+            size.width(),
+            size.height(),
+        )
+
     def mousePressEvent(self, event):
-        if self.interactive and event.button() == Qt.MouseButton.LeftButton:
+        if (
+            self.can_reposition
+            and self.after is not None
+            and event.button() == Qt.MouseButton.LeftButton
+            and self.image_area(self.after).contains(event.position().toPoint())
+        ):
+            self.setFocus()
+            self.drag_at = event.position()
+            self.crop_drag_started.emit()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+        elif self.interactive and event.button() == Qt.MouseButton.LeftButton:
             self.move_split(event)
         else:
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        if self.interactive and event.buttons() & Qt.MouseButton.LeftButton:
+        if self.drag_at is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            delta = event.position() - self.drag_at
+            self.drag_at = event.position()
+            self.crop_dragged.emit(delta.x(), delta.y())
+            event.accept()
+        elif self.interactive and event.buttons() & Qt.MouseButton.LeftButton:
             self.move_split(event)
         else:
             super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.drag_at is not None and event.button() == Qt.MouseButton.LeftButton:
+            self.drag_at = None
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        nudges = {
+            Qt.Key.Key_Left: (-0.02, 0),
+            Qt.Key.Key_Right: (0.02, 0),
+            Qt.Key.Key_Up: (0, -0.02),
+            Qt.Key.Key_Down: (0, 0.02),
+        }
+        if self.can_reposition and event.key() in nudges:
+            self.crop_nudged.emit(*nudges[event.key()])
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
     def move_split(self, event):
         value = round(100 * event.position().x() / self.width())
@@ -189,13 +242,7 @@ class SplitPreview(QWidget):
             (self.before, QRect(0, 0, split, self.height())),
             (self.after, QRect(split, 0, self.width() - split, self.height())),
         ):
-            size = image.size().scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio) * self.zoom
-            area = QRect(
-                self.rect().center().x() - size.width() // 2,
-                self.rect().center().y() - size.height() // 2,
-                size.width(),
-                size.height(),
-            )
+            area = self.image_area(image)
             painter.setClipRect(clip)
             painter.drawImage(area, image)
         painter.setClipping(False)
@@ -485,6 +532,9 @@ class Workbench(QWidget):
         toolbar.addWidget(fit)
         editor_layout.addLayout(toolbar)
         self.preview = SplitPreview()
+        self.preview.crop_drag_started.connect(self.start_crop_drag)
+        self.preview.crop_dragged.connect(self.drag_crop)
+        self.preview.crop_nudged.connect(self.nudge_crop)
         editor_layout.addWidget(self.preview, 1)
         comparison = QHBoxLayout()
         comparison.addWidget(QLabel("Before"))
@@ -581,6 +631,10 @@ class Workbench(QWidget):
         self.crop_controls = CropControls(self, CropSettings())
         self.crop_controls.changed.connect(self.save_crop)
         panel.addRow(self.crop_controls)
+        self.center_crop = QPushButton("Center image")
+        self.center_crop.clicked.connect(self.recenter_crop)
+        self.center_crop.setToolTip("Reset the image position inside the crop frame.")
+        panel.addRow(self.center_crop)
         buttons = QHBoxLayout()
         reset = QPushButton("Reset")
         reset.clicked.connect(self.reset)
@@ -644,6 +698,7 @@ class Workbench(QWidget):
         if index >= 0:
             self.set_adjustments(self.edits[index])
             self.crop_controls.set_settings(self.crops[index])
+            self.set_view()
             path = self.paths[index]
             self.name.setText(path.name)
             self.name.setToolTip(f"<qt>{escape(str(path))}</qt>")
@@ -679,7 +734,56 @@ class Workbench(QWidget):
     def save_crop(self, crop):
         index = self.photos.currentRow()
         if index >= 0:
-            self.crops[index] = crop
+            self.crops[index] = replace(crop, center=self.crops[index].center)
+            self.set_view()
+            self.queue_preview()
+
+    def start_crop_drag(self):
+        self.compare.setCurrentIndex(0)
+
+    def crop_overflow(self):
+        if self.cached is None or self.preview.after is None:
+            return 0, 0
+        source, _ = self.cached
+        width, height = source.size
+        edit = self.adjustments()
+        if edit.rotation % 2:
+            width, height = height, width
+        if edit.crop:
+            x, y = edit.crop
+            width, height = max(1, min(width, height * x // y)), max(1, min(height, width * y // x))
+        crop = self.crops[self.photos.currentRow()]
+        size = crop.size
+        if size is None or size.mode != "crop" or size.height is None:
+            return 0, 0
+        factor = max(size.width / width, size.height / height)
+        frame = self.preview.image_area(self.preview.after)
+        return (
+            frame.width() * max(0, width * factor / size.width - 1),
+            frame.height() * max(0, height * factor / size.height - 1),
+        )
+
+    def drag_crop(self, dx, dy):
+        span_x, span_y = self.crop_overflow()
+        self.nudge_crop(-dx / span_x if span_x > 0.1 else 0, -dy / span_y if span_y > 0.1 else 0)
+
+    def nudge_crop(self, dx, dy):
+        index = self.photos.currentRow()
+        if index < 0:
+            return
+        crop = self.crops[index]
+        center = tuple(
+            max(0, min(1, value + delta))
+            for value, delta in zip(crop.center, (dx, dy), strict=True)
+        )
+        self.crops[index] = replace(crop, center=center)
+        self.queue_preview()
+        self.timer.start(16)
+
+    def recenter_crop(self):
+        index = self.photos.currentRow()
+        if index >= 0:
+            self.crops[index] = replace(self.crops[index], center=(0.5, 0.5))
             self.queue_preview()
 
     def reset(self):
@@ -687,6 +791,7 @@ class Workbench(QWidget):
         self.crops[index] = CropSettings()
         self.crop_controls.set_settings(self.crops[index])
         self.set_adjustments(Adjustments())
+        self.set_view()
         self.save_edit()
 
     def apply_all(self):
@@ -717,6 +822,18 @@ class Workbench(QWidget):
             Qt.CursorShape.SplitHCursor if self.preview.interactive else Qt.CursorShape.ArrowCursor
         )
         self.split.setEnabled(self.preview.interactive)
+        index = self.photos.currentRow()
+        crop = self.crops[index] if index >= 0 else CropSettings()
+        available = crop.size is not None and crop.size.mode == "crop"
+        self.center_crop.setVisible(available)
+        self.preview.can_reposition = available and self.compare.currentIndex() != 2
+        self.preview.setToolTip(
+            "Drag the image to reframe. Use arrow keys to adjust, or Center image to reset."
+            if available
+            else ""
+        )
+        if self.preview.can_reposition:
+            self.preview.setCursor(Qt.CursorShape.OpenHandCursor)
         self.preview.update()
 
     def set_exposure(self, value):
@@ -743,7 +860,7 @@ class Workbench(QWidget):
             self.preview.update()
         if path is not None:
             self.status.setText("Preparing preview…")
-            self.timer.start()
+            self.timer.start(150)
         else:
             self.timer.stop()
 
@@ -789,4 +906,11 @@ class Workbench(QWidget):
                 )
                 item.setIcon(QIcon(QPixmap.fromImage(thumb)))
         self.preview.update()
-        self.status.setText(error or "Preview ready · Export uses full resolution")
+        self.status.setText(
+            error
+            or (
+                "Drag the image to reframe · Export keeps this position"
+                if self.preview.can_reposition
+                else "Preview ready · Export uses full resolution"
+            )
+        )

@@ -166,3 +166,92 @@ def test_square_preset_fills_edges_and_enlarges_small_photos(tmp_path, dimension
             assert result.getpixel(point) == (20, 100, 60)
     assert CropSettings(crop.preset).allow_enlargement
     editor.close()
+
+
+@pytest.mark.parametrize("portrait", [False, True])
+def test_drag_reframes_preview_and_export_and_keeps_each_photo_position(tmp_path, portrait):
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+
+    from rasterready.workbench import ExportRequest
+
+    app = QApplication.instance() or QApplication([])
+    source = tmp_path / "stripes.png"
+    picture = Image.new("RGB", (40, 120) if portrait else (120, 40))
+    for n, color in enumerate(("red", "green", "blue")):
+        box = (0, n * 40, 40, (n + 1) * 40) if portrait else (n * 40, 0, (n + 1) * 40, 40)
+        picture.paste(color, box)
+    picture.save(source)
+    other = tmp_path / "other.png"
+    picture.save(other)
+    editor = Workbench(None, DropArea())
+    editor.resize(1100, 800)
+    editor.show()
+    editor.set_paths([source, other])
+    editor.crop_controls.preset.setCurrentIndex(
+        1 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
+    )
+    deadline = time.monotonic() + 5
+    while (
+        editor.preview.after is None or editor.running or editor.timer.isActive()
+    ) and time.monotonic() < deadline:
+        app.processEvents()
+        QTest.qWait(10)
+    assert editor.preview.can_reposition
+    preview = editor.preview
+    origin = QPointF(preview.image_area(preview.after).center())
+    app.sendEvent(
+        preview,
+        QMouseEvent(
+            QEvent.Type.MouseButtonPress,
+            origin,
+            origin,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+    # Moving the image down/right reveals the top/left red band.
+    target = origin + QPointF(0, 2000) if portrait else origin + QPointF(2000, 0)
+    app.sendEvent(
+        preview,
+        QMouseEvent(
+            QEvent.Type.MouseMove,
+            target,
+            target,
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+    app.sendEvent(
+        preview,
+        QMouseEvent(
+            QEvent.Type.MouseButtonRelease,
+            target,
+            target,
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+    deadline = time.monotonic() + 5
+    while (editor.running or editor.timer.isActive()) and time.monotonic() < deadline:
+        app.processEvents()
+        QTest.qWait(10)
+    expected_center = (0.5, 0) if portrait else (0, 0.5)
+    assert editor.crops[0].center == expected_center
+    after = preview.after
+    assert after.pixelColor(after.width() // 2, after.height() // 2).getRgb()[:3] == (255, 0, 0)
+    request = ExportRequest((source,), "Reframed", "PNG", 95, (Adjustments(),), (editor.crops[0],))
+    Batch(request, tmp_path).run()
+    with Image.open(tmp_path / "Reframed.png") as result:
+        assert result.size == (2000, 2000)
+        assert result.getpixel((1000, 1000)) == (255, 0, 0)
+    editor.photos.setCurrentRow(1)
+    assert editor.crops[1].center == (0.5, 0.5)
+    editor.photos.setCurrentRow(0)
+    assert editor.crops[0].center == expected_center
+    editor.recenter_crop()
+    assert editor.crops[0].center == (0.5, 0.5)
+    editor.close()

@@ -62,6 +62,7 @@ class Batch(QThread):
                     quality=request.quality,
                     output_name=request.name,
                     sequence=index + 1,
+                    crop_center=crop.center,
                 )
                 self.completed.emit(index, replace(result, notes=crop.preset.review(result)), "")
             except (PreparationError, OSError) as exc:
