@@ -269,7 +269,9 @@ def test_crop_zoom_changes_export_and_restores_on_photo_selection(tmp_path):
     editor.crop.setCurrentIndex(
         4 + next(i for i, p in enumerate(PRESETS) if p.key == "product2000")
     )
+    editor.compare.setCurrentIndex(2)
     editor.zoom.setValue(200)
+    assert editor.compare.currentIndex() == 0
     deadline = time.monotonic() + 5
     while (editor.running or editor.timer.isActive()) and time.monotonic() < deadline:
         app.processEvents()

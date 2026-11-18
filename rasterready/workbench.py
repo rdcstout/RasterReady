@@ -793,6 +793,7 @@ class Workbench(QWidget):
     def set_zoom(self, value):
         index = self.photos.currentRow()
         if index >= 0 and not self.restoring:
+            self.compare.setCurrentIndex(0)
             self.crops[index] = replace(self.crops[index], zoom=value / 100)
             self.set_view()
             self.queue_preview()
