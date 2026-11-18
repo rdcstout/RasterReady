@@ -60,6 +60,10 @@ class CropSettings:
         return self.custom if self.preset.key == "custom" else self.preset.size
 
     @property
+    def allow_enlargement(self):
+        return self.enlarge or (self.preset.size is not None and self.preset.size.mode == "crop")
+
+    @property
     def flatten(self):
         return self.preset.flatten or (self.size is not None and self.size.mode == "pad")
 
@@ -137,7 +141,7 @@ class PreviewTask(QRunnable):
         # to the full-resolution pixels during export.
         if bounds.mode == "fit":
             return image
-        return _resize(image, bounds, self.crop.enlarge)
+        return _resize(image, bounds, self.crop.allow_enlargement)
 
 
 def _qimage(image):
@@ -281,7 +285,12 @@ class CropControls(QWidget):
         )
         self.guide.setVisible(bool(preset.source))
         self.custom.setVisible(preset.key == "custom")
-        self.enlarge.setEnabled(index != 0)
+        fill = preset.size is not None and preset.size.mode == "crop"
+        blocked = self.enlarge.blockSignals(True)
+        if fill:
+            self.enlarge.setChecked(True)
+        self.enlarge.setEnabled(index != 0 and not fill)
+        self.enlarge.blockSignals(blocked)
         self.update_settings()
 
     def open_guidance(self):

@@ -139,3 +139,30 @@ def test_crop_settings_survive_selection_and_apply_to_all(tmp_path):
     assert editor.crops[0] == CropSettings()
     assert editor.crops[1].preset == preset
     editor.close()
+
+
+@pytest.mark.parametrize("dimensions", [(120, 60), (60, 120)])
+def test_square_preset_fills_edges_and_enlarges_small_photos(tmp_path, dimensions):
+    from rasterready.workbench import CropSettings, ExportRequest
+
+    _app = QApplication.instance() or QApplication([])
+    source = tmp_path / "landscape.png"
+    Image.new("RGB", dimensions, (20, 100, 60)).save(source)
+    editor = Workbench(None, DropArea())
+    editor.set_paths([source])
+    controls = editor.crop_controls
+    controls.preset.setCurrentIndex(
+        1 + next(i for i, preset in enumerate(PRESETS) if preset.key == "product2000")
+    )
+    assert controls.enlarge.isChecked()
+    assert not controls.enlarge.isEnabled()
+    crop = editor.crops[0]
+    assert crop.size.mode == "crop"
+    request = ExportRequest((source,), "Square", "PNG", 95, (Adjustments(),), (crop,))
+    Batch(request, tmp_path).run()
+    with Image.open(tmp_path / "Square.png") as result:
+        assert result.size == (2000, 2000)
+        for point in [(0, 0), (1999, 0), (0, 1999), (1999, 1999), (1000, 1000)]:
+            assert result.getpixel(point) == (20, 100, 60)
+    assert CropSettings(crop.preset).allow_enlargement
+    editor.close()

@@ -45,9 +45,9 @@ PRESETS = (
     Preset("square1600", "Square • fit within 1600 × 1600", Size(1600, 1600)),
     Preset(
         "product2000",
-        "Product • 2000 × 2000, white padding",
-        Size(2000, 2000, "pad"),
-        "Fits the entire image on a white square without cropping. Does not remove an existing background.",
+        "Square • 2000 × 2000, fill",
+        Size(2000, 2000, "crop"),
+        "Fills the square edge to edge, enlarging when needed and cropping the excess from the center.",
         flatten=True,
     ),
     Preset("landscape", "Landscape • fit within 1920 × 1080", Size(1920, 1080)),

@@ -55,7 +55,7 @@ class Batch(QThread):
                     path,
                     self.folder,
                     crop.size,
-                    crop.enlarge,
+                    crop.allow_enlargement,
                     crop.flatten,
                     adjustments=edit,
                     output_format=request.format,
