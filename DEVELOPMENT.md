@@ -1,5 +1,14 @@
 # Developing RasterReady
 
+## Current editor
+
+The 0.2.0 development source starts directly in the Photo Workbench layout. The app module owns the window, export worker, results and updater. The workbench module owns the photo queue, preview, Crop dropdown and export settings. The enhance module implements local adjustments. The core module owns decoding, color/orientation normalization, framing and exclusive output creation.
+
+The single Crop dropdown contains aspect ratios and the shared sizing presets. Bounded presets fill the frame. Per-photo zoom and position are used by both preview and export. Export writes JPG, PNG or TIFF into Downloads/<file name>, with additional images numbered 2, 3 and onward.
+
+GitHub Actions tests and builds this source on macOS, Windows and Ubuntu. Successful runs retain development app/installer files for seven days. They are test candidates. Native installation and workflow acceptance are required for each new package before a release.
+
+
 Python 3.12 and the pinned dependencies in `pyproject.toml` / `requirements-dev.txt` are required. Run commands from the repository root. On Linux, Qt also needs a graphical desktop and the distribution's Qt/XCB runtime libraries (commonly `libegl1`, `libxkbcommon-x11-0` and `libxcb-cursor0` on Debian/Ubuntu). Headless tests use Qt's offscreen platform.
 
 ## Set up and run

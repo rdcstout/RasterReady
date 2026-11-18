@@ -1,5 +1,7 @@
 # Install and use RasterReady
 
+These editing instructions describe the 0.2.0 development source. The latest stable installers are version 0.1.0. Development builds are test candidates with their own platform validation status.
+
 Download the package for your computer from the [latest release](https://github.com/rdcstout/RasterReady/releases/latest). Downloads are free. The release includes SHA-256 checksums, versioned packages, identical stable-name downloads, and matching source materials.
 
 ## macOS
@@ -43,9 +45,14 @@ To update, quit RasterReady and replace the AppImage with the newer official dow
 
 ## Prepare images
 
-1. Enter a project name and choose a preset. Web presets preserve proportions and do not enlarge smaller inputs unless enabled.
-2. Drop your images into the canvas or choose files. Review per-image warnings and results.
-3. Open the project folder to retrieve PNGs directly from your system's **Downloads / project name** folder. Existing files receive a numeric suffix.
+1. Open or drop images into the canvas. Choose a photo from the bottom queue.
+2. Adjust denoise, sharpening, exposure, warmth, rotation or upscaling in the right sidebar.
+3. Select an aspect ratio or sizing preset from the existing **Crop** dropdown. Boxed presets fill the frame and crop excess at the edges. Custom dimensions appear when Custom is selected.
+4. Use **Zoom** or the mouse wheel over the preview, then drag to position the photo inside its frame. The exported image keeps this framing. **Fit** returns zoom to 100%, and **Reset** clears the current photo's adjustments.
+5. Choose **Export images…**, enter a file name and select JPG, PNG or TIFF. Choose the current image or the queue.
+6. Retrieve the exports from your local **Downloads / file name** folder. A batch named Photo saves as Photo.png, Photo 2.png, Photo 3.png and onward. Existing files are preserved and occupied names are skipped.
+
+**Apply to all** copies the selected photo's adjustments, crop preset, position and zoom to the queue. Export results show per-file warnings or failures.
 
 Original files are preserved. Orientation and color are handled before embedded metadata is removed. Visible details in a picture and filenames remain visible. Marketplace presets prepare dimensions; they do not verify listing content or guarantee platform acceptance. Sony RAW support depends on the camera and RAW mode.
 
@@ -57,11 +64,11 @@ Inputs include JPEG, PNG, HEIC/HEIF, AVIF, WebP, TIFF, BMP, GIF and Sony ARW/SRF
 
 Sony RAW inputs are developed to image data rather than exported only from an embedded preview. Representative A7 III, A7 IV and A7R IV files were tested; camera and RAW-mode support depends on LibRaw. Native Windows and Linux package checks used an A7 III file.
 
-Orientation is applied and images are converted to sRGB before embedded metadata is removed. Transparency is preserved except where a preset calls for white output. Generic web widths, marketplace suggestions and custom fit/crop/padding are available. General suggestions are identified when platform rules have not been verified.
+Orientation is applied and images are converted to sRGB before embedded metadata is removed. PNG and TIFF preserve transparency except where a preset requires white output. JPG flattens transparency to white. Crop includes generic web widths, marketplace sizes and custom dimensions. Boxed presets fill their frames, and width-only presets preserve proportions. Marketplace sizes are preparation suggestions and require checking the destination uploader.
 
 Inputs are limited to 1 GiB per file and 100 megapixels; outputs to 50 megapixels and 20,000 pixels per dimension. Per-image errors and warnings appear in the results list. Press Enter on a result or double-click it for full details.
 
-The approved hero is promotional artwork based on an app screenshot.
+Denoise, sharpening and upscaling use local image filters and Lanczos resampling. Auto adjust applies a balanced denoise and sharpen preset. Exports contain 8-bit RGB or RGBA pixels.
 
 ## Recovery and help
 

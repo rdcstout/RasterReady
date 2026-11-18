@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rasterready"
 dynamic = ["version"]
-description = "Prepare private, web-sized PNG images in a project folder."
+description = "Edit photos locally and export framed JPG, PNG and TIFF images."
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]

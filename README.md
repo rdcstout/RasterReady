@@ -1,8 +1,10 @@
 # RasterReady
 
-[![RasterReady — Drop. Resize. Done.](docs/assets/rasterready-hero.png)](https://extrusiontherapy.com/SoftwareRasterReady)
+[![RasterReady photo editor and export](docs/assets/rasterready-hero.png)](https://extrusiontherapy.com/SoftwareRasterReady)
 
-Prepare images for websites and sales listings. Name a project, drop in a batch, and retrieve clean PNGs directly from **Downloads / your project name**. Embedded metadata is removed and originals are preserved.
+Edit photos locally and prepare images for websites and sales listings. Compare before and after, adjust denoise, sharpening, exposure and warmth, then choose a preset in **Crop**. Zoom and drag to frame the image, and export JPG, PNG or TIFF copies. Embedded metadata is removed and originals are preserved.
+
+The source on main is the 0.2.0 development version. The latest packaged release is 0.1.0. Development installers are available in the [successful GitHub Actions runs](https://github.com/rdcstout/RasterReady/actions/workflows/checks.yml) for testing.
 
 ## Download
 
@@ -18,7 +20,9 @@ Downloads are free. Mac is signed and notarized; Windows is unsigned. See [insta
 
 ## Get started
 
-Enter a project name, choose a size preset, and drop images or choose files. Open the project folder when conversion finishes.
+Open or drop photos, make adjustments in the right sidebar, and choose an aspect ratio or sizing preset from **Crop**. Use **Zoom** or the mouse wheel over the image to frame it, then drag to reposition it. **Apply to all** copies adjustments and framing to the queue.
+
+Choose **Export images…**, enter a file name and select JPG, PNG or TIFF. Export the selected photo or the queue. Files save locally in **Downloads / file name**, using names such as Photo.jpg, Photo 2.jpg and Photo 3.jpg. Existing files are preserved.
 
 [Usage, supported formats and limitations](docs/INSTALLATION.md#prepare-images) · [Updates, removal and recovery](docs/INSTALLATION.md)
 
