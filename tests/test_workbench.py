@@ -13,7 +13,7 @@ from rasterready.app import Batch, DropArea
 from rasterready.core import prepare
 from rasterready.enhance import Adjustments
 from rasterready.presets import PRESETS
-from rasterready.workbench import CropOptions, ExportOptions, Workbench
+from rasterready.workbench import ExportOptions, Workbench
 
 
 def test_preview_and_selected_preset_export(tmp_path):
@@ -37,13 +37,13 @@ def test_preview_and_selected_preset_export(tmp_path):
     assert dialog.adjustments() == Adjustments()
     dialog.photos.setCurrentRow(1)
     assert dialog.adjustments().rotation == 1
-    crop = CropOptions(None, dialog.crops[1])
+    crop = dialog.crop_controls
     assert crop.presets[1:] == PRESETS
     crop.preset.setCurrentIndex(
         1 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
     )
-    crop.accept()
-    dialog.crops[1] = crop.result_settings
+    crop.update_settings()
+    assert not crop.isWindow()
     options = ExportOptions(None, dialog.paths, 1, dialog.edits, dialog.crops)
     options.filename.setText("Preview")
     options.format.setCurrentText("JPG")

@@ -100,6 +100,7 @@ class PreviewTask(QRunnable):
             issue = ""
             if self.crop.size is not None:
                 try:
+                    self.crop.size.validate()
                     enhanced = self.resize_preview(source, original, enhanced)
                 except PreparationError as exc:
                     issue = str(exc)
@@ -206,17 +207,24 @@ def _strength(minimum, maximum, value=0):
     return spin
 
 
-class CropOptions(QDialog):
+class CropControls(QWidget):
+    changed = Signal(object)
+
     def __init__(self, parent, crop):
         super().__init__(parent)
-        self.setWindowTitle("Crop presets")
-        self.setMinimumWidth(490)
-        self.result_settings = None
+        self.restoring = False
         form = QFormLayout(self)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
         self.preset = QComboBox()
         self.presets = (AS_ENHANCED, *PRESETS)
         for item in self.presets:
             self.preset.addItem(item.label)
+        self.preset.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.preset.setMinimumContentsLength(10)
+        self.preset.setAccessibleName("Crop size preset")
         form.addRow("Size preset", self.preset)
         self.guidance = QLabel()
         self.guidance.setObjectName("guidance")
@@ -245,10 +253,24 @@ class CropOptions(QDialog):
         self.message = QLabel()
         self.message.setWordWrap(True)
         form.addRow(self.message)
-        form.addRow(dialog_buttons(self, "Apply"))
         self.preset.currentIndexChanged.connect(self.update_preset)
+        for field in (self.width, self.height):
+            field.valueChanged.connect(self.update_settings)
+        self.mode.currentIndexChanged.connect(self.update_settings)
+        self.enlarge.toggled.connect(self.update_settings)
+        self.set_settings(crop)
+
+    def set_settings(self, crop):
+        self.restoring = True
+        self.width.setValue(crop.custom.width)
+        self.height.setValue(crop.custom.height or 0)
+        self.mode.setCurrentIndex(["fit", "crop", "pad"].index(crop.custom.mode))
+        self.enlarge.setChecked(crop.enlarge)
         self.preset.setCurrentIndex(self.presets.index(crop.preset))
         self.update_preset(self.preset.currentIndex())
+        self.restoring = False
+        self.message.clear()
+        self.message.hide()
 
     def update_preset(self, index):
         preset = self.presets[index]
@@ -260,13 +282,16 @@ class CropOptions(QDialog):
         self.guide.setVisible(bool(preset.source))
         self.custom.setVisible(preset.key == "custom")
         self.enlarge.setEnabled(index != 0)
+        self.update_settings()
 
     def open_guidance(self):
         source = self.presets[self.preset.currentIndex()].source
         if source:
             QDesktopServices.openUrl(QUrl(source))
 
-    def accept(self):
+    def update_settings(self, *_):
+        if self.restoring:
+            return
         preset = self.presets[self.preset.currentIndex()]
         custom = Size(
             self.width.value(),
@@ -279,9 +304,11 @@ class CropOptions(QDialog):
                 crop.size.validate()
         except PreparationError as exc:
             self.message.setText(str(exc))
-            return
-        self.result_settings = crop
-        super().accept()
+            self.message.show()
+        else:
+            self.message.clear()
+            self.message.hide()
+        self.changed.emit(crop)
 
 
 def dialog_buttons(dialog, label):
@@ -510,6 +537,10 @@ class Workbench(QWidget):
             ("Aspect ratio", self.crop),
             ("Rotate clockwise", self.rotation),
         ):
+            if control is self.crop:
+                heading = QLabel("Crop")
+                heading.setObjectName("panelTitle")
+                panel.addRow(heading)
             control.setAccessibleName(label)
             if isinstance(control, (QSpinBox, QDoubleSpinBox)):
                 row = QWidget()
@@ -538,13 +569,9 @@ class Workbench(QWidget):
                 else control.valueChanged
             )
             signal.connect(self.save_edit)
-        self.crop_presets = QPushButton("Crop presets…")
-        self.crop_presets.clicked.connect(self.open_crop)
-        panel.addRow(self.crop_presets)
-        self.crop_summary = QLabel()
-        self.crop_summary.setObjectName("guidance")
-        self.crop_summary.setWordWrap(True)
-        panel.addRow(self.crop_summary)
+        self.crop_controls = CropControls(self, CropSettings())
+        self.crop_controls.changed.connect(self.save_crop)
+        panel.addRow(self.crop_controls)
         buttons = QHBoxLayout()
         reset = QPushButton("Reset")
         reset.clicked.connect(self.reset)
@@ -559,7 +586,7 @@ class Workbench(QWidget):
         scroll.setObjectName("enhancementScroll")
         scroll.setWidgetResizable(True)
         scroll.setWidget(sidebar)
-        scroll.setFixedWidth(310)
+        scroll.setFixedWidth(330)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         content.addWidget(scroll)
 
@@ -607,7 +634,7 @@ class Workbench(QWidget):
     def select_photo(self, index):
         if index >= 0:
             self.set_adjustments(self.edits[index])
-            self.update_crop_summary(index)
+            self.crop_controls.set_settings(self.crops[index])
             path = self.paths[index]
             self.name.setText(path.name)
             self.name.setToolTip(f"<qt>{escape(str(path))}</qt>")
@@ -637,30 +664,19 @@ class Workbench(QWidget):
             self.queue_preview()
 
     def open_crop(self):
-        index = self.photos.currentRow()
-        if index < 0:
-            return
-        dialog = CropOptions(self, self.crops[index])
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.crops[index] = dialog.result_settings
-            self.update_crop_summary(index)
-            self.queue_preview()
-        dialog.deleteLater()
+        self.crop_controls.preset.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        self.crop_controls.preset.showPopup()
 
-    def update_crop_summary(self, index):
-        crop = self.crops[index]
-        if crop.preset.key == "custom":
-            size = crop.size
-            label = f"{size.width} × {size.height}" if size.height else f"{size.width} px wide"
-        else:
-            label = crop.preset.label if crop.size is not None else ""
-        self.crop_summary.setText(label)
-        self.crop_summary.setVisible(bool(label))
+    def save_crop(self, crop):
+        index = self.photos.currentRow()
+        if index >= 0:
+            self.crops[index] = crop
+            self.queue_preview()
 
     def reset(self):
         index = self.photos.currentRow()
         self.crops[index] = CropSettings()
-        self.update_crop_summary(index)
+        self.crop_controls.set_settings(self.crops[index])
         self.set_adjustments(Adjustments())
         self.save_edit()
 

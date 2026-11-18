@@ -12,7 +12,6 @@ from PySide6.QtWidgets import QApplication
 
 from rasterready import app as ui
 from rasterready.presets import PRESETS
-from rasterready.workbench import CropOptions
 
 
 @pytest.mark.parametrize("problem", ["project", "size"])
@@ -29,7 +28,7 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
     window.accept_files([source])
     dialog = ui.ExportOptions(window, window.paths, 0, window.editor.edits, window.editor.crops)
     dialog.filename.setText("invalid/name" if problem == "project" else "Website")
-    crop_dialog = CropOptions(window, window.editor.crops[0])
+    crop_dialog = window.editor.crop_controls
     if problem == "size":
         crop_dialog.preset.setCurrentIndex(
             1 + next(i for i, p in enumerate(PRESETS) if p.key == "custom")
@@ -37,7 +36,10 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
         crop_dialog.mode.setCurrentIndex(1)
     try:
         invalid = dialog if problem == "project" else crop_dialog
-        invalid.accept()
+        if problem == "project":
+            invalid.accept()
+        else:
+            invalid.update_settings()
         assert invalid.message.text()
         assert window.worker is None
         assert not list(downloads.rglob("*.png"))
@@ -47,8 +49,7 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
             dialog.filename.setText("Website")
         else:
             crop_dialog.mode.setCurrentIndex(0)
-            crop_dialog.accept()
-            window.editor.crops[0] = crop_dialog.result_settings
+            crop_dialog.update_settings()
             dialog.crops = tuple(window.editor.crops)
         dialog.accept()
         window.start(dialog.request)
