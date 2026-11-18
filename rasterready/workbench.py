@@ -363,7 +363,7 @@ class Workbench(QWidget):
         self.zoom.valueChanged.connect(self.set_zoom)
         toolbar.addWidget(self.zoom)
         fit = QPushButton("Fit")
-        fit.clicked.connect(lambda: self.zoom.setValue(100))
+        fit.clicked.connect(self.fit_preview)
         toolbar.addWidget(fit)
         editor_layout.addLayout(toolbar)
         self.preview = SplitPreview()
@@ -411,6 +411,7 @@ class Workbench(QWidget):
         self.exposure.setRange(-2, 2)
         self.exposure.setSingleStep(0.1)
         self.exposure.setDecimals(1)
+        self.exposure_slider = QSlider(Qt.Orientation.Horizontal)
         self.warmth = _strength(-100, 100)
         self.rotation = QComboBox()
         self.rotation.addItems(["0°", "90°", "180°", "270°"])
@@ -432,18 +433,17 @@ class Workbench(QWidget):
                 row = QWidget()
                 fields = QHBoxLayout(row)
                 fields.setContentsMargins(0, 0, 0, 0)
-                slider = QSlider(Qt.Orientation.Horizontal)
-                step = 10 if control is self.exposure else 1
-                slider.setRange(round(control.minimum() * step), round(control.maximum() * step))
+                if control is self.exposure:
+                    slider = self.exposure_slider
+                    slider.setRange(-20, 20)
+                    slider.valueChanged.connect(self.set_exposure)
+                    control.valueChanged.connect(self.sync_exposure)
+                else:
+                    slider = QSlider(Qt.Orientation.Horizontal)
+                    slider.setRange(control.minimum(), control.maximum())
+                    slider.valueChanged.connect(control.setValue)
+                    control.valueChanged.connect(slider.setValue)
                 slider.setAccessibleName(f"{label} slider")
-                slider.valueChanged.connect(
-                    lambda value, field=control, scale=step: field.setValue(
-                        value / scale if scale > 1 else value
-                    )
-                )
-                control.valueChanged.connect(
-                    lambda value, target=slider, scale=step: target.setValue(round(value * scale))
-                )
                 fields.addWidget(slider, 1)
                 control.setFixedWidth(75)
                 fields.addWidget(control)
@@ -576,6 +576,15 @@ class Workbench(QWidget):
         )
         self.split.setEnabled(self.preview.interactive)
         self.preview.update()
+
+    def set_exposure(self, value):
+        self.exposure.setValue(value / 10)
+
+    def sync_exposure(self, value):
+        self.exposure_slider.setValue(round(value * 10))
+
+    def fit_preview(self):
+        self.zoom.setValue(100)
 
     def set_zoom(self, value):
         self.preview.zoom = value / 100

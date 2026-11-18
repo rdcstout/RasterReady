@@ -244,16 +244,15 @@ class Window(QMainWindow):
             action.setShortcut(shortcut)
             group.addAction(action)
             appearance_menu.addAction(action)
-            action.triggered.connect(lambda _checked, i=index: self.appearance.setCurrentIndex(i))
+            action.setData(index)
             self.appearance_actions.append(action)
+        group.triggered.connect(self.set_appearance)
         help_menu = self.menuBar().addMenu("Help")
         self.check_updates = help_menu.addAction("Check for Updates…")
         self.automatic_updates = help_menu.addAction("Check automatically every week")
         self.automatic_updates.setCheckable(True)
         self.automatic_updates.setChecked(self.settings.value("updates/automatic", True, type=bool))
-        self.automatic_updates.toggled.connect(
-            lambda enabled: self.settings.setValue("updates/automatic", enabled)
-        )
+        self.automatic_updates.toggled.connect(self.save_automatic_updates)
         help_menu.addSeparator()
         help_menu.addAction("Third-party notices…", self.open_notices)
         layout.addWidget(header)
@@ -333,8 +332,14 @@ class Window(QMainWindow):
         self.browse.setFocus()
         self.updater = UpdateChecker(self.settings, self)
         self.updater.result.connect(self.update_result)
-        self.updater.busy.connect(lambda busy: self.check_updates.setEnabled(not busy))
+        self.updater.busy.connect(self.check_updates.setDisabled)
         self.check_updates.triggered.connect(self.manual_update_check)
+
+    def set_appearance(self, action):
+        self.appearance.setCurrentIndex(action.data())
+
+    def save_automatic_updates(self, enabled):
+        self.settings.setValue("updates/automatic", enabled)
 
     def manual_update_check(self):
         self.statusBar().showMessage("Checking for updates…")
@@ -618,6 +623,7 @@ def main():
     app.setOrganizationName("Extrusion Therapy")
     app.setWindowIcon(QIcon(str(Path(__file__).parent / "assets/product-icon.png")))
     window = Window()
+    window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
     window.show()
     return app.exec()
 
