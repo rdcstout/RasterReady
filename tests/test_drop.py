@@ -30,7 +30,6 @@ def test_drop_imports_batch_as_copy_even_when_sender_proposes_move(tmp_path, mon
         Image.new("RGB", (16, 8), "blue").save(path, pnginfo=metadata)
     originals = [path.read_bytes() for path in paths]
     window = ui.Window(settings=settings)
-    window.project.setText("Dropped batch")
     window.show()
     mime = QMimeData()
     mime.setUrls([QUrl.fromLocalFile(str(p)) for p in paths] + [QUrl("https://example.org/a.png")])
@@ -48,6 +47,17 @@ def test_drop_imports_batch_as_copy_even_when_sender_proposes_move(tmp_path, mon
     application.sendEvent(window.drop, drop)
     assert drop.isAccepted()
     assert drop.dropAction() == Qt.DropAction.CopyAction
+    assert window.worker is None
+    assert not (tmp_path / "Downloads").exists()
+    assert window.editor.pages.currentIndex() == 1
+
+    def accept_with_project(dialog):
+        dialog.project.setText("Dropped batch")
+        dialog.accept()
+        return dialog.result()
+
+    monkeypatch.setattr(ui.ExportOptions, "exec", accept_with_project)
+    window.export.click()
     deadline = time.monotonic() + 5
     while window.worker is not None and time.monotonic() < deadline:
         application.processEvents()

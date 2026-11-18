@@ -24,9 +24,9 @@ PALETTES = {
         warning="#8f5b00",
     ),
     "dark": dict(
-        surface="#1b1d22",
-        canvas="#22252c",
-        field="#272a32",
+        surface="#17181b",
+        canvas="#101114",
+        field="#24262b",
         text="#f3f4f7",
         muted="#b0b5c1",
         border="#353943",
@@ -69,6 +69,7 @@ def apply(window, name: str):
         (QPalette.ColorRole.Button, c["field"]),
         (QPalette.ColorRole.ButtonText, c["text"]),
         (QPalette.ColorRole.Highlight, c["tint"]),
+        (QPalette.ColorRole.Accent, c["accent"]),
         (QPalette.ColorRole.HighlightedText, c["text"]),
         (QPalette.ColorRole.PlaceholderText, c["muted"]),
         (QPalette.ColorRole.ToolTipBase, c["surface"]),
@@ -87,13 +88,18 @@ def apply(window, name: str):
     window.setPalette(palette)
     window.setStyleSheet(f"""
       QWidget {{ font-size: 15px; color: {c["text"]}; }}
-      QMainWindow, QWidget#body, QWidget#header, QWidget#setup {{ background: {c["surface"]}; }}
+      QMainWindow, QWidget#body, QWidget#header, QWidget#enhancements {{ background: {c["surface"]}; }}
       QWidget#workspace {{ background: {c["canvas"]}; }}
       QMenuBar, QMenu {{ background: {c["surface"]}; color: {c["text"]}; }}
       QMenuBar::item:selected, QMenu::item:selected {{ background: {c["tint"]}; color: {c["text"]}; }}
       QMenu {{ border: 1px solid {c["outline"]}; }}
       QWidget#header {{ border-bottom: 1px solid {c["border"]}; }}
-      QScrollArea#setupScroll {{ background: {c["surface"]}; border: none; border-right: 1px solid {c["border"]}; }}
+      QScrollArea#enhancementScroll {{ background: {c["surface"]}; border: none; border-left: 1px solid {c["border"]}; }}
+      QWidget#exportStatus {{ border-top: 1px solid {c["border"]}; }}
+      QLabel#panelTitle {{ font-size: 19px; font-weight: 700; }}
+      QListWidget#filmstrip {{ background: {c["surface"]}; border: none; border-top: 1px solid {c["border"]}; }}
+      QListWidget#filmstrip::item {{ background: {c["field"]}; border: 1px solid {c["border"]}; border-radius: 7px; padding: 8px; }}
+      QListWidget#filmstrip::item:selected {{ background: {c["tint"]}; border-color: {c["accent"]}; color: {c["text"]}; }}
       QScrollBar:vertical {{ background: {c["surface"]}; width: 12px; margin: 2px; }}
       QScrollBar::handle:vertical {{ background: {c["outline"]}; border-radius: 4px; min-height: 30px; }}
       QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
@@ -105,9 +111,11 @@ def apply(window, name: str):
       QLabel#dropTitle {{ font-size: 25px; font-weight: 700; letter-spacing: -0.5px; }}
       QLabel#dropHint {{ color: {c["muted"]}; font-size: 13px; }}
       QLabel#summary {{ font-size: 15px; font-weight: 600; }}
-      QLineEdit, QComboBox, QSpinBox {{ background: {c["field"]}; border: 1px solid {c["outline"]};
+      QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background: {c["field"]}; border: 1px solid {c["outline"]};
         border-radius: 7px; padding: 10px 11px; selection-background-color: {c["accent"]}; selection-color: white; }}
-      QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{ border: 2px solid {c["accent"]}; padding: 9px 10px; }}
+      QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {c["accent"]}; padding: 9px 10px; }}
+      QWidget#enhancements QSpinBox, QWidget#enhancements QDoubleSpinBox, QWidget#enhancements QComboBox {{ padding: 5px 8px; }}
+      QWidget#enhancements QSpinBox:focus, QWidget#enhancements QDoubleSpinBox:focus, QWidget#enhancements QComboBox:focus {{ padding: 4px 7px; }}
       QComboBox::drop-down {{ border: none; width: 24px; }}
       QComboBox::down-arrow {{ image: url("{arrow}"); width: 14px; height: 14px; }}
       QComboBox QAbstractItemView {{ background: {c["surface"]}; color: {c["text"]}; selection-background-color: {c["tint"]}; }}
@@ -136,5 +144,5 @@ def apply(window, name: str):
       QToolTip {{ background: {c["surface"]}; color: {c["text"]}; border: 1px solid {c["outline"]}; padding: 8px; }}
     """)
     window.drop.art.setPixmap(icon("photo", c["muted"]).pixmap(68, 68))
-    window.open.setIcon(icon("folder-open", "#ffffff"))
+    window.open.setIcon(icon("folder-open", c["text"]))
     window.current_theme = name

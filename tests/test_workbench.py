@@ -9,7 +9,7 @@ from PIL import Image
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from rasterready.app import Batch
+from rasterready.app import Batch, DropArea
 from rasterready.core import Size, prepare
 from rasterready.enhance import Adjustments
 from rasterready.presets import PRESETS
@@ -23,8 +23,9 @@ def test_preview_and_selected_preset_export(tmp_path):
     Image.new("RGBA", (80, 40), (100, 20, 50, 255)).save(first)
     Image.new("RGBA", (80, 40), (100, 20, 50, 0)).save(second)
     custom = Size(1024)
-    dialog = Workbench(None, [first, second], "Preview", -1, False, custom)
-    dialog.photo.setCurrentIndex(1)
+    dialog = Workbench(None, DropArea())
+    dialog.set_paths([first, second])
+    dialog.photos.setCurrentRow(1)
     dialog.auto_adjust()
     dialog.rotation.setCurrentIndex(1)
     deadline = time.monotonic() + 5
@@ -33,9 +34,11 @@ def test_preview_and_selected_preset_export(tmp_path):
         QTest.qWait(10)
     assert dialog.preview.after is not None
     assert (dialog.preview.after.width(), dialog.preview.after.height()) == (40, 80)
-    options = ExportOptions(
-        None, "Preview", dialog.paths, 1, dialog.adjustments(), -1, False, custom
-    )
+    dialog.photos.setCurrentRow(0)
+    assert dialog.adjustments() == Adjustments()
+    dialog.photos.setCurrentRow(1)
+    assert dialog.adjustments().rotation == 1
+    options = ExportOptions(None, "Preview", dialog.paths, 1, dialog.edits, -1, False, custom)
     assert options.presets[1:] == PRESETS
     options.preset.setCurrentIndex(
         1 + next(i for i, item in enumerate(PRESETS) if item.key == "product2000")
@@ -48,9 +51,7 @@ def test_preview_and_selected_preset_export(tmp_path):
     assert request.paths == (second,)
     assert request.quality == 90
     assert request.flatten
-    batch = Batch(
-        request.paths, tmp_path, request.size, request.enlarge, request.preset, request=request
-    )
+    batch = Batch(request, tmp_path)
     batch.run()
     assert not (tmp_path / "first.jpg").exists()
     with Image.open(tmp_path / "second.jpg") as output:

@@ -1,6 +1,7 @@
-"""Single-window batch workflow. All image work runs off the GUI thread."""
+"""Photo editor and batch export. Image processing runs off the GUI thread."""
 
 import sys
+from dataclasses import replace
 from html import escape
 from pathlib import Path
 from threading import Event
@@ -9,21 +10,16 @@ from PySide6.QtCore import QSettings, QSize, QStandardPaths, Qt, QThread, QUrl, 
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
-    QFormLayout,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
-    QScrollArea,
-    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -35,44 +31,36 @@ from .core import PreparationError, Size, prepare, project_folder
 from .notices import NoticesDialog
 from .presets import PRESETS
 from .update_ui import UpdateChecker
-from .workbench import IMAGE_FILTER, ExportRequest, Workbench
+from .workbench import IMAGE_FILTER, ExportOptions, ExportRequest, Workbench
 
 
 class Batch(QThread):
     completed = Signal(int, object, str)
 
-    def __init__(self, paths, folder, size, enlarge, preset, parent=None, *, request=None):
+    def __init__(self, request, folder, parent=None):
         super().__init__(parent)
-        self.paths, self.folder, self.size, self.enlarge = paths, folder, size, enlarge
-        self.preset = preset
         self.request = request
+        self.folder = folder
         self.cancel = Event()
 
     def run(self):
-        for index, path in enumerate(self.paths):
+        request = self.request
+        for index, (path, edit) in enumerate(zip(request.paths, request.adjustments, strict=True)):
             if self.cancel.is_set():
                 self.completed.emit(index, None, "Cancelled")
                 continue
             try:
-                if self.request is None:
-                    result = prepare(
-                        path, self.folder, self.size, self.enlarge, self.preset.flatten
-                    )
-                else:
-                    result = prepare(
-                        path,
-                        self.folder,
-                        self.size,
-                        self.enlarge,
-                        self.request.flatten,
-                        adjustments=self.request.adjustments,
-                        output_format=self.request.format,
-                        quality=self.request.quality,
-                    )
-                notes = self.preset.review(result)
-                from dataclasses import replace
-
-                self.completed.emit(index, replace(result, notes=notes), "")
+                result = prepare(
+                    path,
+                    self.folder,
+                    request.size,
+                    request.enlarge,
+                    request.flatten,
+                    adjustments=edit,
+                    output_format=request.format,
+                    quality=request.quality,
+                )
+                self.completed.emit(index, replace(result, notes=request.preset.review(result)), "")
             except (PreparationError, OSError) as exc:
                 self.completed.emit(index, None, str(exc))
             except Exception:
@@ -110,17 +98,17 @@ class DropArea(QFrame):
         self.art = QLabel()
         self.art.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.art)
-        title = QLabel("Drop images here")
+        title = QLabel("Drop images here to start editing")
         title.setObjectName("dropTitle")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-        choose = QPushButton("Choose files")
+        choose = QPushButton("Browse images")
         choose.setProperty("primary", True)
         choose.setMinimumWidth(155)
         choose.setMinimumHeight(42)
         choose.clicked.connect(self.clicked.emit)
         layout.addWidget(choose, 0, Qt.AlignmentFlag.AlignHCenter)
-        hint = QLabel("JPEG, PNG, HEIC, AVIF, Sony RAW")
+        hint = QLabel("JPEG · PNG · TIFF · WEBP · HEIC · AVIF · Sony RAW")
         hint.setObjectName("dropHint")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint.setWordWrap(True)
@@ -175,13 +163,22 @@ class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
         self.setWindowTitle("RasterReady")
-        self.resize(1040, 900)
-        self.setMinimumSize(900, 700)
+        self.resize(1200, 800)
+        self.setMinimumSize(800, 570)
         self.settings = (
             settings if settings is not None else QSettings("ExtrusionTherapy", "RasterReady")
         )
         self.worker = None
         self.paths = []
+        self.project = ""
+        self.preset_index = -1
+        self.enlarge = False
+        self.custom_size = Size(1920)
+        self.export_format = "PNG"
+        self.quality = 95
+        self.export_flatten = None
+        self.export_scope = False
+        self.export_paths = ()
         self.folder = None
         self.successes = 0
         self.done = 0
@@ -195,10 +192,13 @@ class Window(QMainWindow):
         header = QWidget()
         header.setObjectName("header")
         top = QHBoxLayout(header)
-        top.setContentsMargins(28, 22, 28, 22)
+        top.setContentsMargins(20, 11, 20, 11)
         title = QLabel('Raster<span style="color:#df101b">Ready</span>')
         title.setObjectName("wordmark")
         top.addWidget(title)
+        self.browse = QPushButton("Open images")
+        self.browse.clicked.connect(self.choose)
+        top.addWidget(self.browse)
         top.addStretch()
         self.appearance = QComboBox()
         self.appearance.setObjectName("theme")
@@ -207,20 +207,28 @@ class Window(QMainWindow):
         self.appearance.setToolTip("Choose light, dark, or follow the system appearance")
         self.appearance.setCurrentIndex(
             {"system": 0, "light": 1, "dark": 2}.get(
-                str(self.settings.value("appearance", "system")), 0
+                str(self.settings.value("appearance", "dark")), 2
             )
         )
         top.addWidget(self.appearance)
+        self.export = QPushButton("Export images…")
+        self.export.setProperty("primary", True)
+        self.export.setEnabled(False)
+        self.export.clicked.connect(self.open_export)
+        top.addWidget(self.export)
         file_menu = self.menuBar().addMenu("File")
         self.choose_files_action = file_menu.addAction("Choose images…")
         self.choose_files_action.setShortcut("Ctrl+O")
         self.choose_files_action.triggered.connect(self.choose)
-        self.enhance_action = file_menu.addAction("Enhance && Export…")
-        self.enhance_action.triggered.connect(self.open_workbench)
+        self.export_action = file_menu.addAction("Export images…")
+        self.export_action.setShortcut("Ctrl+Shift+E")
+        self.export_action.setEnabled(False)
+        self.export_action.triggered.connect(self.open_export)
         view_menu = self.menuBar().addMenu("View")
         self.choose_preset_action = view_menu.addAction("Choose size preset…")
         self.choose_preset_action.setShortcut("Ctrl+Shift+P")
-        self.choose_preset_action.triggered.connect(self.choose_preset)
+        self.choose_preset_action.setEnabled(False)
+        self.choose_preset_action.triggered.connect(self.open_export)
         results_action = view_menu.addAction("Image results")
         results_action.setShortcut("Ctrl+Shift+R")
         results_action.triggered.connect(self.focus_results)
@@ -264,100 +272,12 @@ class Window(QMainWindow):
         layout.addWidget(self.update_banner)
         self.update_banner.hide()
         self.available_update = None
-        content = QHBoxLayout()
-        content.setSpacing(0)
-        content.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(content, 1)
-        setup = QWidget()
-        setup.setObjectName("setup")
-        setup_layout = QVBoxLayout(setup)
-        setup_layout.setContentsMargins(26, 28, 26, 26)
-        setup_layout.setSpacing(10)
-        setup_layout.addWidget(QLabel("Project name"))
-        self.project = QLineEdit()
-        self.project.setPlaceholderText("Name your project")
-        self.project.setMaxLength(100)
-        self.project.setAccessibleName("Project name")
-        setup_layout.addWidget(self.project)
-        setup_layout.addSpacing(15)
-        setup_layout.addWidget(QLabel("Size preset"))
-        self.preset = QComboBox()
-        self.preset.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
-        )
-        self.preset.setMinimumContentsLength(10)
-        self.preset.setMinimumWidth(0)
-        for preset in PRESETS:
-            self.preset.addItem(preset.label)
-        self.preset.setCurrentIndex(2)
-        self.preset.setAccessibleName("Size preset")
-        setup_layout.addWidget(self.preset)
-        self.custom = QWidget()
-        row = QFormLayout(self.custom)
-        row.setContentsMargins(0, 0, 0, 0)
-        self.width = QSpinBox()
-        self.width.setRange(1, 20000)
-        self.width.setValue(1920)
-        self.width.setAccessibleName("Custom width in pixels")
-        self.height = QSpinBox()
-        self.height.setRange(0, 20000)
-        self.height.setSpecialValueText("Proportional")
-        self.height.setAccessibleName("Custom height in pixels; zero means proportional")
-        self.mode = QComboBox()
-        self.mode.addItems(["Fit", "Crop", "White padding"])
-        self.mode.setAccessibleName("Custom sizing mode")
-        row.addRow("Width", self.width)
-        row.addRow("Height", self.height)
-        row.addRow("Sizing", self.mode)
-        setup_layout.addWidget(self.custom)
-        self.custom.setVisible(False)
-        self.preset.currentIndexChanged.connect(
-            lambda index: self.custom.setVisible(PRESETS[index].size is None)
-        )
-        self.guidance = QLabel()
-        self.guidance.setWordWrap(True)
-        self.guidance.setObjectName("guidance")
-        setup_layout.addWidget(self.guidance)
-        self.guide = QPushButton("Platform image guidance")
-        self.guide.setObjectName("guide")
-        self.guide.clicked.connect(self.open_guidance)
-        setup_layout.addWidget(self.guide)
-        self.preset.currentIndexChanged.connect(self.update_guidance)
-        self.update_guidance()
-        self.enlarge = QCheckBox("Allow enlargement")
-        self.enlarge.setToolTip("Smaller images keep their size unless enlargement is enabled.")
-        setup_layout.addWidget(self.enlarge)
-        setup_layout.addSpacing(20)
-        save_label = QLabel("Save to")
-        save_label.setObjectName("muted")
-        setup_layout.addWidget(save_label)
-        self.location = QLabel("Downloads / project name")
-        self.location.setTextFormat(Qt.TextFormat.PlainText)
-        self.location.setWordWrap(True)
-        self.location.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        setup_layout.addWidget(self.location)
-        privacy = QLabel("PNG output\nEmbedded metadata removed\nOriginals preserved")
-        privacy.setObjectName("guidance")
-        setup_layout.addSpacing(18)
-        setup_layout.addWidget(privacy)
-        setup_layout.addStretch()
-        setup_scroll = QScrollArea()
-        setup_scroll.setObjectName("setupScroll")
-        setup_scroll.setWidgetResizable(True)
-        setup_scroll.setWidget(setup)
-        setup_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        setup_scroll.setFixedWidth(310)
-        content.addWidget(setup_scroll)
-        workspace = QWidget()
-        workspace.setObjectName("workspace")
-        right = QVBoxLayout(workspace)
-        right.setContentsMargins(26, 26, 26, 22)
-        right.setSpacing(18)
-        content.addWidget(workspace, 1)
         self.drop = DropArea()
         self.drop.files.connect(self.accept_files)
         self.drop.clicked.connect(self.choose)
-        right.addWidget(self.drop, 3)
+        self.editor = Workbench(self, self.drop)
+        layout.addWidget(self.editor, 1)
+        self.setAcceptDrops(True)
         self.table = ResultsTable(0, 3)
         self.table.setHorizontalHeaderLabels(["Image", "Dimensions", "Result"])
         self.table.horizontalHeader().setDefaultAlignment(
@@ -382,44 +302,35 @@ class Window(QMainWindow):
             "Select a result and press Enter or double-click for its full details."
         )
         self.table.itemActivated.connect(self.show_details)
-        self.table.setMinimumHeight(130)
-        right.addWidget(self.table, 2)
-        self.status = QLabel("Enter a project name, then drop your images.")
+        self.table.setFixedHeight(155)
+        self.table.hide()
+        layout.addWidget(self.table)
+        self.status = QLabel("Open or drop images to get started.")
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         self.status.setObjectName("summary")
-        actions = QHBoxLayout()
-        self.export = QPushButton("Prepare selected images")
-        self.export.setEnabled(False)
-        self.export.setVisible(False)
-        self.export.clicked.connect(self.start)
+        self.results = QPushButton("Export results")
+        self.results.setEnabled(False)
+        self.results.clicked.connect(self.toggle_results)
         self.stop = QPushButton("Cancel remaining")
-        self.stop.setEnabled(False)
-        self.stop.setVisible(False)
+        self.stop.hide()
         self.stop.clicked.connect(self.cancel)
         self.open = QPushButton("Open project folder")
         self.open.setEnabled(False)
-        self.open.setProperty("primary", True)
-        self.open.setMinimumHeight(42)
-        self.open.setIconSize(QSize(20, 20))
+        self.open.setIconSize(QSize(18, 18))
         self.open.clicked.connect(self.open_folder)
-        self.enhance = QPushButton("Enhance && Export…")
-        self.enhance.clicked.connect(self.open_workbench)
-        actions.addStretch()
-        for button in (self.enhance, self.export, self.stop, self.open):
+        footer = QWidget()
+        footer.setObjectName("exportStatus")
+        actions = QHBoxLayout(footer)
+        actions.setContentsMargins(18, 8, 18, 8)
+        actions.addWidget(self.status, 1)
+        for button in (self.results, self.stop, self.open):
             actions.addWidget(button)
-        footer = QVBoxLayout()
-        footer.setSpacing(12)
-        footer.addWidget(self.status)
-        footer.addLayout(actions)
-        right.addLayout(footer)
-        self.project.textChanged.connect(self.update_destination)
+        layout.addWidget(footer)
         self.appearance.currentIndexChanged.connect(self.update_theme)
-        QApplication.instance().styleHints().colorSchemeChanged.connect(
-            lambda _: self.update_theme(persist=False)
-        )
+        QApplication.instance().styleHints().colorSchemeChanged.connect(self.system_theme_changed)
         self.update_theme(persist=False)
-        self.project.setFocus()
+        self.browse.setFocus()
         self.updater = UpdateChecker(self.settings, self)
         self.updater.result.connect(self.update_result)
         self.updater.busy.connect(lambda busy: self.check_updates.setEnabled(not busy))
@@ -464,49 +375,66 @@ class Window(QMainWindow):
         if files:
             self.accept_files([Path(path) for path in files])
 
-    def choose_preset(self):
-        if self.worker is None:
-            self.preset.setFocus(Qt.FocusReason.ShortcutFocusReason)
-            self.preset.showPopup()
+    def dragEnterEvent(self, event):
+        if self.worker is None and self.drop._drop_paths(event):
+            event.setDropAction(Qt.DropAction.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if self.worker is None and (paths := self.drop._drop_paths(event)):
+            event.setDropAction(Qt.DropAction.CopyAction)
+            event.accept()
+            self.accept_files(paths)
+        else:
+            event.ignore()
+
+    def toggle_results(self):
+        self.table.setVisible(self.table.isHidden())
 
     def focus_results(self):
-        self.table.setFocus(Qt.FocusReason.ShortcutFocusReason)
         if self.table.rowCount():
+            self.table.show()
+            self.table.setFocus(Qt.FocusReason.ShortcutFocusReason)
             self.table.setCurrentCell(0, 0)
             self.table.selectRow(0)
 
     def accept_files(self, paths):
         if self.worker is not None:
             return
-        self.set_paths(paths)
-        self.export.setEnabled(bool(paths))
-        if self.project.text().strip():
-            self.start()
-        else:
-            self.status.setText("Enter a project name, then choose Prepare selected images.")
-            self.export.setVisible(True)
-            self.project.setFocus()
+        self.editor.set_paths([*self.paths, *paths])
+        self.paths = self.editor.paths
+        self.set_busy(False)
+        self.status.setText(f"{len(self.paths)} image(s) in the queue")
 
-    def set_paths(self, paths):
-        self.paths = paths
+    def set_results(self, paths):
         self.table.setRowCount(len(paths))
         for i, path in enumerate(paths):
             self.table.setItem(i, 0, QTableWidgetItem(path.name))
-            self.table.item(i, 0).setToolTip(f"<qt>{escape(path.name)}</qt>")
+            self.table.item(i, 0).setToolTip(f"<qt>{escape(str(path))}</qt>")
             self.table.setItem(i, 1, QTableWidgetItem("—"))
             self.table.setItem(i, 2, QTableWidgetItem("Waiting"))
 
-    def open_workbench(self):
-        if self.worker is not None:
+    def open_export(self):
+        if not self.paths or self.worker is not None:
             return
-        dialog = Workbench(
-            self, self.paths, self.project.text(), -1, self.enlarge.isChecked(), self.custom_size()
+        dialog = ExportOptions(
+            self,
+            self.project,
+            self.paths,
+            self.editor.photos.currentRow(),
+            self.editor.edits,
+            self.preset_index,
+            self.enlarge,
+            self.custom_size,
+            output_format=self.export_format,
+            quality=self.quality,
+            flatten=self.export_flatten,
+            selected_only=self.export_scope,
         )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            request = dialog.request
-            self.project.setText(request.project)
-            self.set_paths(request.paths)
-            self.start(request=request)
+            self.start(dialog.request)
         dialog.deleteLater()
 
     def open_notices(self):
@@ -516,16 +444,18 @@ class Window(QMainWindow):
             directory = Path(__file__).resolve().parents[1] / "third_party"
         NoticesDialog(directory, self).exec()
 
-    def custom_size(self):
-        return Size(
-            self.width.value(),
-            self.height.value() or None,
-            ["fit", "crop", "pad"][self.mode.currentIndex()],
-        )
-
-    def start(self, *, request: ExportRequest | None = None):
-        if not self.paths or self.worker is not None:
+    def start(self, request: ExportRequest):
+        if not request.paths or self.worker is not None:
             return
+        self.project = request.project
+        self.preset_index = PRESETS.index(request.preset) if request.preset in PRESETS else -1
+        self.enlarge = request.enlarge
+        self.export_format = request.format
+        self.export_flatten = request.flatten
+        self.export_scope = len(request.paths) == 1 and len(self.paths) > 1
+        self.quality = request.quality
+        if request.preset.key == "custom" and request.size is not None:
+            self.custom_size = request.size
         try:
             downloads = QStandardPaths.writableLocation(
                 QStandardPaths.StandardLocation.DownloadLocation
@@ -533,34 +463,25 @@ class Window(QMainWindow):
             if not downloads:
                 raise PreparationError("The system Downloads folder could not be located.")
             Path(downloads).mkdir(parents=True, exist_ok=True)
-            if request is None:
-                preset = PRESETS[self.preset.currentIndex()]
-                size = preset.size or self.custom_size()
-                enlarge = self.enlarge.isChecked()
-            else:
-                preset, size, enlarge = request.preset, request.size, request.enlarge
-            if size is not None:
-                size.validate()
-            self.folder = project_folder(Path(downloads), self.project.text())
+            if request.size is not None:
+                request.size.validate()
+            folder = project_folder(Path(downloads), request.project)
         except (PreparationError, OSError) as exc:
             self.status.setText(str(exc))
-            self.export.setVisible(True)
             return
-        self.location.setText("Downloads / " + self.folder.name)
-        self.location.setToolTip(str(self.folder))
+        self.folder = folder
         self.open.setEnabled(True)
+        self.open.setToolTip(str(self.folder))
         self.successes = self.done = 0
-        for i in range(len(self.paths)):
-            self.table.item(i, 1).setText("—")
-            self.table.item(i, 2).setText("Waiting")
-        self.batch_format = request.format if request else "PNG"
-        self.worker = Batch(
-            tuple(self.paths), self.folder, size, enlarge, preset, self, request=request
-        )
+        self.export_paths = request.paths
+        self.set_results(self.export_paths)
+        self.results.setEnabled(True)
+        self.batch_format = request.format
+        self.worker = Batch(request, self.folder, self)
         self.worker.completed.connect(self.completed)
         self.worker.finished.connect(self.finished)
         self.set_busy(True)
-        self.status.setText(f"Preparing {len(self.paths)} image(s)…")
+        self.status.setText(f"Exporting {len(self.export_paths)} image(s)…")
         self.worker.start()
 
     def show_details(self, item):
@@ -605,42 +526,35 @@ class Window(QMainWindow):
             self.table.item(index, column).setToolTip(f"<qt>{escape(text)}</qt>")
             self.table.item(index, column).setData(Qt.ItemDataRole.AccessibleDescriptionRole, text)
         self.status.setText(
-            f"Processed {self.done} of {len(self.paths)} • {self.successes} {self.batch_format}(s) saved"
+            f"Processed {self.done} of {len(self.export_paths)} • {self.successes} {self.batch_format}(s) saved"
         )
 
     def set_busy(self, busy):
         self.choose_files_action.setEnabled(not busy)
-        self.enhance_action.setEnabled(not busy)
-        self.enhance.setEnabled(not busy)
-        self.choose_preset_action.setEnabled(not busy)
-        for widget in (
-            self.project,
-            self.preset,
-            self.custom,
-            self.enlarge,
-            self.drop,
-            self.export,
-        ):
-            widget.setEnabled(not busy)
+        self.browse.setEnabled(not busy)
+        can_export = bool(self.paths) and not busy
+        self.export.setEnabled(can_export)
+        self.export_action.setEnabled(can_export)
+        self.choose_preset_action.setEnabled(can_export)
+        self.drop.setEnabled(not busy)
         self.stop.setEnabled(busy)
         self.stop.setVisible(busy)
-        self.export.setVisible(False)
 
     def finished(self):
         worker, self.worker = self.worker, None
         if worker:
             worker.deleteLater()
         self.set_busy(False)
-        failures = len(self.paths) - self.successes
+        failures = len(self.export_paths) - self.successes
+        if failures:
+            self.table.show()
         self.status.setText(
-            f"{self.successes} {self.batch_format}(s) ready"
+            f"{self.successes} {self.batch_format}(s) saved to Downloads / {self.folder.name}"
             + (f" · {failures} failed or cancelled" if failures else "")
         )
 
-    def update_destination(self):
-        name = self.project.text().strip()
-        self.location.setText("Downloads / " + (name or "project name"))
-        self.open.setEnabled(self.folder is not None and self.folder.name == name)
+    def system_theme_changed(self, _scheme):
+        self.update_theme(persist=False)
 
     def update_theme(self, *_args, persist=True):
         choice = ("system", "light", "dark")[self.appearance.currentIndex()]
@@ -684,16 +598,6 @@ class Window(QMainWindow):
                 "The project folder could not be opened. It may have been moved or removed."
             )
 
-    def update_guidance(self):
-        preset = PRESETS[self.preset.currentIndex()]
-        self.guidance.setText(preset.guidance)
-        self.guide.setVisible(bool(preset.source))
-
-    def open_guidance(self):
-        source = PRESETS[self.preset.currentIndex()].source
-        if source:
-            QDesktopServices.openUrl(QUrl(source))
-
     def closeEvent(self, event):
         if self.worker is not None:
             self.cancel()
@@ -702,6 +606,7 @@ class Window(QMainWindow):
             )
             event.ignore()
         else:
+            self.editor.stop_preview()
             self.updater.stop()
             event.accept()
 

@@ -14,6 +14,23 @@ from PySide6.QtWidgets import QApplication
 from rasterready import app as ui
 
 
+def export_queue(window, name, *, selected_only=False):
+    dialog = ui.ExportOptions(
+        window,
+        name,
+        window.paths,
+        window.editor.photos.currentRow(),
+        window.editor.edits,
+        -1,
+        False,
+        ui.Size(1920),
+        selected_only=selected_only,
+    )
+    dialog.accept()
+    assert dialog.request is not None
+    window.start(dialog.request)
+
+
 @pytest.fixture(autouse=True)
 def isolated_preferences(tmp_path, monkeypatch):
     settings = QSettings(str(tmp_path / "preferences.ini"), QSettings.Format.IniFormat)
@@ -30,8 +47,8 @@ def test_batch_continues_after_failure_and_uses_project_folder(tmp_path, monkeyp
     good = tmp_path / "good.png"
     Image.new("RGB", (120, 80), "red").save(good)
     window = ui.Window()
-    window.project.setText("Test project")
     window.accept_files([bad, good])
+    export_queue(window, "Test project")
     deadline = time.monotonic() + 10
     while window.worker is not None and time.monotonic() < deadline:
         application.processEvents()
@@ -53,11 +70,11 @@ def test_theme_choice_persists_and_does_not_lose_project(tmp_path):
     _application = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
     window = ui.Window(settings=settings)
-    window.project.setText("My project")
+    window.project = "My project"
     for index, name in ((1, "light"), (2, "dark")):
         window.appearance.setCurrentIndex(index)
         assert window.current_theme == name
-        assert window.project.text() == "My project"
+        assert window.project == "My project"
         assert window.settings.value("appearance") == name
         assert not window.drop.art.pixmap().isNull()
     window.close()
@@ -89,19 +106,19 @@ def test_cancellation_finishes_current_file_and_releases_batch(tmp_path, monkeyp
     entered, resume = Event(), Event()
     real_prepare = ui.prepare
 
-    def slow_first(*args):
+    def slow_first(*args, **kwargs):
         entered.set()
         if not resume.wait(5):
             raise RuntimeError("Test did not release conversion")
-        return real_prepare(*args)
+        return real_prepare(*args, **kwargs)
 
     monkeypatch.setattr(ui, "prepare", slow_first)
     files = [tmp_path / f"photo-{n}.png" for n in range(2)]
     for source in files:
         Image.new("RGB", (8, 8), "red").save(source)
     window = ui.Window()
-    window.project.setText("Cancel test")
     window.accept_files(files)
+    export_queue(window, "Cancel test")
     try:
         assert entered.wait(2)
         window.cancel()
@@ -118,7 +135,8 @@ def test_cancellation_finishes_current_file_and_releases_batch(tmp_path, monkeyp
         tmp_path / "Downloads" / "Cancel test" / "photo-0.png"
     ]
     # A second batch remains usable after the first thread has been released.
-    window.accept_files([files[1]])
+    window.editor.photos.setCurrentRow(1)
+    export_queue(window, "Cancel test", selected_only=True)
     while window.worker is not None and time.monotonic() < deadline:
         application.processEvents()
         QTest.qWait(10)
@@ -131,6 +149,8 @@ def test_failure_details_are_accessible_and_treated_as_plain_text(tmp_path, monk
     window = ui.Window()
     window.accept_files([tmp_path / "<b>private</b>.jpg"])
     error = '<img src="private.png"> could not be read'
+    window.export_paths = tuple(window.paths)
+    window.set_results(window.export_paths)
     window.completed(0, None, error)
     item = window.table.item(0, 2)
     assert item.data(Qt.ItemDataRole.AccessibleDescriptionRole) == error

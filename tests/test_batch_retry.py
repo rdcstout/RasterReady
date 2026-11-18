@@ -25,22 +25,36 @@ def test_queued_files_can_retry_after_correcting_settings(tmp_path, monkeypatch,
     Image.new("RGB", (8, 4), "red").save(source)
     original = source.read_bytes()
     window = ui.Window(settings=settings)
-    window.project.setText("invalid/name" if problem == "project" else "Website")
+    window.accept_files([source])
+    dialog = ui.ExportOptions(
+        window,
+        "invalid/name" if problem == "project" else "Website",
+        window.paths,
+        0,
+        window.editor.edits,
+        -1,
+        False,
+        ui.Size(1920),
+    )
     if problem == "size":
-        window.preset.setCurrentIndex(next(i for i, p in enumerate(PRESETS) if p.key == "custom"))
-        window.mode.setCurrentIndex(1)  # Crop with proportional height is invalid.
+        dialog.preset.setCurrentIndex(
+            1 + next(i for i, p in enumerate(PRESETS) if p.key == "custom")
+        )
+        dialog.mode.setCurrentIndex(1)  # Crop with proportional height is invalid.
     try:
-        window.accept_files([source])
+        dialog.accept()
+        assert dialog.request is None
+        assert dialog.message.text()
         assert window.worker is None
-        assert window.table.item(0, 2).text() == "Waiting"
         assert not list(downloads.rglob("*.png"))
         assert not window.export.isHidden()
         assert window.export.isEnabled()
         if problem == "project":
-            window.project.setText("Website")
+            dialog.project.setText("Website")
         else:
-            window.mode.setCurrentIndex(0)
-        window.export.click()
+            dialog.mode.setCurrentIndex(0)
+        dialog.accept()
+        window.start(dialog.request)
         deadline = time.monotonic() + 5
         while window.worker is not None and time.monotonic() < deadline:
             application.processEvents()
